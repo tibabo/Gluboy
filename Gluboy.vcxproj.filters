@@ -60,6 +60,12 @@
     <ClInclude Include="imgui_impl_glfw.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="io.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="video.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glouboy.cpp">
@@ -84,6 +90,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="io.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="video.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

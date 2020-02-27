@@ -11,11 +11,16 @@
 
 #include <stdio.h>
 
+
+extern unsigned char ram[0xffff];
+extern int TC;
 namespace Glouboy {
 	void init();
 	void update();
 	void execute();
-}
 
+}
+void jumpToVector(int vector);
+void wakeHalteMode();
 
 #endif /* glouboy_h */

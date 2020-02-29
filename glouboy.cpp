@@ -16,6 +16,7 @@
 
 #include "io.h"
 #include "video.h"
+#include "timer.h"
 static MemoryEditor mem_edit_1;                                            // store your state somewhere
 
 enum {BUF_SIZE = 1024};
@@ -25,9 +26,9 @@ enum {BUF_SIZE = 1024};
 
 unsigned char * rom = 0;
 long romSize;
-int PC;
+unsigned short PC;
 int breakpointPC;
-int SP;
+unsigned short SP;
 bool haltMode = false;
 
 
@@ -72,8 +73,8 @@ unsigned short bc, de, hl;
 #define reg_l  (*((unsigned char*)&hl))
 #define reg_h  (*(((unsigned char*)&hl) + 1))
 
-unsigned char ram[0xffff]; 
 
+std::vector<unsigned char> ram;
 
 
 #define update_carry() {flags.H = (carrybits & 0x10)>0; flags.C = (carrybits & 0x100)>0;}
@@ -82,8 +83,8 @@ unsigned char ram[0xffff];
 #define INC_r(a,clock) { [](){ TC += clock;  flags.N = 0; flags.H = (a & 0x0F) == 0x0F; a += 1;  flags.Z = (a == 0);  PC +=1;}, "INC " #a }
 
 #define DEC_r(a,clock) { [](){ TC += clock;  flags.N = 1; flags.H = (a & 0x0F) == 0x00; a -= 1;  flags.Z = (a == 0);  PC +=1;}, "DEC " #a }
-#define LD_r_n(a,clock) { [](){ TC += clock;  a = rom[PC + 1];                                                     PC +=2;}, "LD " #a ", 0x%02x" }
-#define LD_ss_n(a) {[](){ TC += 12; a = rom[PC + 1] | (rom[PC + 2]<<8);                                            PC +=3;}, "LD " #a ", 0x%02x%02x" }
+#define LD_r_n(a,clock) { [](){ TC += clock;  a = ram[PC + 1];                                                     PC +=2;}, "LD " #a ", 0x%02x" }
+#define LD_ss_n(a) {[](){ TC += 12; a = ram[PC + 1] | (ram[PC + 2]<<8);                                            PC +=3;}, "LD " #a ", 0x%02x%02x" }
 #define LD_ssp_r(a,r) {[](){ TC += 8;               writeRam(a,r);                                                 PC +=1;}, "LD (" #a "), A" }
 #define ADD_ss_ss(a,b) {[](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = (sum & 0xFFFF) ^ a ^ b ^ 0x1000;  a = sum; flags.C = sum & 0x10000; PC +=1;}, "ADD " #a ", " #b } 
 #define DEC_ss(a) { [](){ TC += 8;  a--;                                                               PC +=1;}, "DEC " #a }
@@ -95,16 +96,16 @@ unsigned char ram[0xffff];
 
 #define AND_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a & x; reg_a = result; flags.H = 1; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "AND A, " #x }
 #define OR_r(x,clock)   { [](){ TC += clock;  flags.N = 0; int result = reg_a | x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "OR A, " #x }
-#define ADC_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a + x + flags.C; flags.H = ((reg_a & 0x0F) + (x & 0x0F) + flags.C ) > 0x0F; flags.C = result > 0xFF; reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "ADC A, " #x }
-#define SBC_r(x,clock)  { [](){ TC += clock;  flags.N = 1; int result = reg_a - x - flags.C; int carrybits = x ^ reg_a ^ result ^ flags.C; update_carry(); reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "SBC A, " #x }
+#define ADC_r(x,clock)  { [](){ TC += clock;  flags.N = 0; unsigned char value = x; int result = reg_a + value + flags.C; flags.H = ((reg_a & 0x0F) + (value & 0x0F) + flags.C ) > 0x0F; flags.C = result > 0xFF; reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "ADC A, " #x }
+#define SBC_r(x,clock)  { [](){ TC += clock;  flags.N = 1; unsigned char value = x;  int result = reg_a - value - flags.C; int carrybits = value ^ reg_a ^ result ^ flags.C; update_carry(); reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "SBC A, " #x }
 #define XOR_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a ^ x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "XOR A, " #x }
-#define CP_r(x,clock)   { [](){ TC += clock;  flags.N = 1; int result = reg_a - x; flags.H = (result & 0x0F) == 0x00; flags.C = (reg_a < x);  flags.Z = (result == 0); PC +=2;}, "CP A, " #x }
+#define CP_r(x,clock)   { [](){ TC += clock;  flags.N = 1; unsigned char value = x; int result = reg_a - value; int carrybits = value ^ reg_a ^ result ^ flags.C; flags.H = (carrybits & 0x10)>0; flags.C = (reg_a < value);  flags.Z = (result == 0); PC +=1;}, "CP A, " #x }
 
-#define JR_X_r8(r)      { [](){ if(r) {TC += 12;  PC += (signed char)(rom[PC + 1]) + 2;} else {TC += 8; PC += 2;} }, "JP " #r ", %d" }
+#define JR_X_r8(r)      { [](){ if(r) {TC += 12;  PC += (signed char)(ram[PC + 1]) + 2;} else {TC += 8; PC += 2;} }, "JP " #r ", %d" }
 
-#define JP_X_A16(r)     { [](){ if(r) {TC += 16;  PC = rom[PC + 1] | (rom[PC + 2]<<8);} else {TC += 12; PC += 3;} }, "JP " #r ", 0x%02x%02x" }
+#define JP_X_A16(r)     { [](){ if(r) {TC += 16;  PC = ram[PC + 1] | (ram[PC + 2]<<8);} else {TC += 12; PC += 3;} }, "JP " #r ", 0x%02x%02x" }
 
-#define CALL_X_A16(r)   { [](){ if(r) {TC+=24; int destination = rom[PC + 1] | (rom[PC + 2]<<8); PC+=3; ram[--SP] = PC>>8; ram[--SP] = PC; PC = destination;} else { TC+=12; PC+=3; }},  "CALL " #r ", 0x%02x%02x"}
+#define CALL_X_A16(r)   { [](){ if(r) {TC+=24; int destination = ram[PC + 1] | (ram[PC + 2]<<8); PC+=3; ram[--SP] = PC>>8; ram[--SP] = PC; PC = destination;} else { TC+=12; PC+=3; }},  "CALL " #r ", 0x%02x%02x"}
 #define PUSH_ss(r)      { [](){ TC+=16; ram[--SP] = r>>8; ram[--SP] = r; PC +=1; }, "PUSH " #r }
 #define RET_X(r)        { [](){ if(r) {TC+=20; PC = ram[SP] | (ram[SP+1]<<8); SP+=2;} else {TC+=8; PC+=1; } }, "RET " #r }
 #define POP_ss(r)       { [](){ TC+=12; r = ram[SP] | (ram[SP+1]<<8); SP+=2; PC +=1; }, "POP " #r }
@@ -119,17 +120,17 @@ unsigned char ram[0xffff];
 #define SWAP(r)         { [](){ TC += 8; r = r>>4 | r<<4; flags.C = 0; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SWAP " #r }
 #define SRL(r)          { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SRL " #r }
 #define BIT(b,r)        { [](){ TC += 8; flags.Z = !(r & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", " #r};
-#define BIT_HL(b)       { [](){ TC += 16; flags.Z = !(ram[hl] & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", (hl)"};
+#define BIT_HL(b)       { [](){ TC += 8; flags.Z = !(ram[hl] & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", (hl)"};
 
 #define SET(b,r)        { [](){ TC += 8; r |= (0x01 << b); PC +=2;}, "SET " #b ", " #r};
-#define SET_HL(b)       { [](){ TC += 16; writeRam(hl, ram[hl] | (0x01 << b)); PC +=2;}, "SET " #b ", (hl)"};
+#define SET_HL(b)       { [](){ TC += 8; writeRam(hl, ram[hl] | (0x01 << b)); PC +=2;}, "SET " #b ", (hl)"};
 #define RES(b,r)        { [](){ TC += 8; r &= 0xff^(0x01 << b); PC +=2;} , "RES " #b ", " #r};
-#define RES_HL(b)       { [](){ TC += 16; writeRam(hl, ram[hl]& 0xff^(0x01 << b)); PC +=2;} , "RES " #b ", (hl)"};
+#define RES_HL(b)       { [](){ TC += 8; writeRam(hl, ram[hl]& 0xff^(0x01 << b)); PC +=2;} , "RES " #b ", (hl)"};
 
 void jumpToVector(int vector)
 {
-	ram[--SP] = PC >> 8;
-	ram[--SP] = PC;
+	ram[--SP] = (unsigned char)(PC >> 8);
+	ram[--SP] = (unsigned char)PC;
 	PC = vector;
 	TC += 20;
 }
@@ -158,11 +159,11 @@ void Glouboy::init()
 	videoCreateTextures();
 
 	// clear RAM
-	memset(ram, 0, sizeof(ram));
+	ram.resize(0x10000,0);
 
 	// init ram with rom
 	assert(romSize >= 0x8000);
-	memcpy(ram, rom, 0x8000);
+	memcpy(ram.data(), rom, 0x8000);
 
 
 	// based on no$gmb
@@ -178,6 +179,9 @@ void Glouboy::init()
 	SP = 0xfffe;
 	PC = 0x100;
 	TC = 81;
+
+	ram[IO_REGISTER | P1] = 0xff;
+
 	videoReset();
 
 	breakpointPC = -1;
@@ -194,7 +198,7 @@ void Glouboy::init()
 	opcode[0xD9] = { []() { /* RETI */ TC += 16; enableInterrupt(); PC = ram[SP] | (ram[SP + 1] << 8); SP += 2; }, "RETI" };
 	
 
-	opcode[0x76] = { []() { /* HALT */   TC += 4;  haltMode = true; PC += 4; }, "HALT" };
+	opcode[0x76] = { []() { /* HALT */   TC += 4;  haltMode = true; PC += 1; }, "HALT" };
 
 	opcode[0x00] = { []() { /* NOP */  TC += 4;  PC += 1; }, "NOP" };
 	opcode[0x01] = LD_ss_n(bc);
@@ -245,7 +249,7 @@ void Glouboy::init()
 	opcode[0x06] = LD_r_n(reg_b,  8);
 	opcode[0x16] = LD_r_n(reg_d,  8);
 	opcode[0x26] = LD_r_n(reg_h,  8);
-	opcode[0x36] = { []() { TC += 12;  writeRam(ram[hl], rom[PC + 1]); PC += 2; }, "LD (hl), 0x%02x" };
+	opcode[0x36] = { []() { TC += 12;  writeRam(ram[hl], ram[PC + 1]); PC += 2; }, "LD (hl), 0x%02x" };
 	opcode[0x0E] = LD_r_n(reg_c,  8);
 	opcode[0x1E] = LD_r_n(reg_e,  8);
 	opcode[0x2E] = LD_r_n(reg_l,  8);
@@ -256,7 +260,7 @@ void Glouboy::init()
 	opcode[0x0F] = { []() { /* RRCA    */ TC += 4;  char carry = (reg_a & 1); reg_a = (reg_a >> 1) | (carry << 7);  flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; }, "RRCA" };
 	opcode[0x1F] = { []() { /* RRA    */  TC += 4;  char carry = (reg_a & 1); reg_a = (reg_a >> 1) | (flags.C << 7); flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; }, "RRA" };
 
-	opcode[0x08] = { []() { /* LD (A16) SP */ TC += 20; uint32_t addr = rom[PC + 1] | (rom[PC + 2] << 8); rom[addr] = SP; rom[addr + 1] = SP >> 8; PC += 3; } , "LD (0x%02x%02x) SP" };
+	opcode[0x08] = { []() { /* LD (A16) SP */ TC += 20; uint32_t addr = ram[PC + 1] | (ram[PC + 2] << 8); ram[addr] = SP; ram[addr + 1] = SP >> 8; PC += 3; } , "LD (0x%02x%02x) SP" };
 	opcode[0x09] = ADD_ss_ss(hl,bc);
 	opcode[0x19] = ADD_ss_ss(hl,de);
 	opcode[0x29] = ADD_ss_ss(hl,hl);
@@ -341,22 +345,22 @@ void Glouboy::init()
 	
 	opcode[0xE2] = /* LD (C) A   */{ []() { TC += 8; writeRam(0xff00 | reg_c, reg_a); PC += 1; }, " LD (C) A" };
 	opcode[0xF2] = /* LD  A (C)  */{ []() { TC += 8; reg_a = ram[0xff00 | reg_c]; PC += 1; }, "LD  A (C)" };
-	opcode[0xE0] = /* LDH (a8) A */{ []() { TC += 12; writeRam(0xff00 | rom[PC + 1], reg_a); PC += 2; }, "LDH (0x%02x) A" };
-	opcode[0xF0] = /* LDH  A (a8)*/{ []() { TC += 12; reg_a = ram[0xff00 | rom[PC + 1]]; PC += 2; }, "LDH  A (0x%02x)" };
+	opcode[0xE0] = /* LDH (a8) A */{ []() { TC += 12; writeRam(0xff00 | ram[PC + 1], reg_a); PC += 2;}, "LDH (0x%02x) A" };
+	opcode[0xF0] = /* LDH  A (a8)*/{ []() { TC += 12; reg_a = ram[0xff00 | ram[PC + 1]]; PC += 2; }, "LDH  A (0x%02x)" };
     
-	opcode[0xEA] = /* LD (a16) A */{ []() { TC += 16; writeRam(rom[PC + 1] | (rom[PC + 2] << 8), reg_a); PC += 3; }, "LD (0x%02x%02x) A" };
-	opcode[0xFA] = /* LD A (a16) */{ []() { TC += 16; reg_a = ram[rom[PC + 1] | (rom[PC + 2] << 8)]; PC += 3; }, "LD A (0x%02x%02x)" };
+	opcode[0xEA] = /* LD (a16) A */{ []() { TC += 16; writeRam(ram[PC + 1] | (ram[PC + 2] << 8), reg_a); PC += 3; }, "LD (0x%02x%02x) A" };
+	opcode[0xFA] = /* LD A (a16) */{ []() { TC += 16; reg_a = ram[ram[PC + 1] | (ram[PC + 2] << 8)]; PC += 3; }, "LD A (0x%02x%02x)" };
     
 	opcode[0xF9] = /* LD SP,HL   */{ []() { TC += 8; SP = hl; PC += 1; }, "LD SP,HL" };
 	opcode[0xF8] = /* LD HL,SP+r8*/{ []() { TC += 12; flags.N = 0; flags.Z = 0;
-										  int x = (signed char)(rom[PC + 1]);
+										  int x = (signed char)(ram[PC + 1]);
 										  int result = SP + x;
 										  int carrybits = x ^ SP ^ result;
 										  update_carry();
 										  hl = result;
 										  PC += 2; }, "LD HL,SP+0x%02x" };
 	opcode[0xE8] = /* ADD SP,r8*/{ []() { TC += 16; flags.N = 0; flags.Z = 0;
-										  int x = (signed char)(rom[PC + 1]);
+										  int x = (signed char)(ram[PC + 1]);
 										  int result = SP + x;
 										  int carrybits = x ^ SP ^ result;
 										  update_carry();
@@ -411,7 +415,7 @@ void Glouboy::init()
 	opcode[0x85] = ADD_r(reg_l,  4);
     opcode[0x86] = ADD_r(ram[hl],8);
 	opcode[0x87] = ADD_r(reg_a,  4);
-    opcode[0xC6] = ADD_r(rom[++PC], 8);
+    opcode[0xC6] = ADD_r(ram[++PC], 8);
 	
 	opcode[0x90] = SUB_r(reg_b,  4);
 	opcode[0x91] = SUB_r(reg_c,  4);
@@ -421,7 +425,7 @@ void Glouboy::init()
 	opcode[0x95] = SUB_r(reg_l,  4);
     opcode[0x96] = SUB_r(ram[hl],8);
 	opcode[0x97] = SUB_r(reg_a,  4);
-	opcode[0xD6] = SUB_r(rom[++PC], 8);
+	opcode[0xD6] = SUB_r(ram[++PC], 8);
     
 	opcode[0xA0] = AND_r(reg_b,  4);
 	opcode[0xA1] = AND_r(reg_c,  4);
@@ -431,7 +435,7 @@ void Glouboy::init()
 	opcode[0xA5] = AND_r(reg_l,  4);
     opcode[0xA6] = AND_r(ram[hl],8);
 	opcode[0xA7] = AND_r(reg_a,  4);
-    opcode[0xE6] = AND_r(rom[++PC],8);
+    opcode[0xE6] = AND_r(ram[++PC],8);
     
 	
 	opcode[0xB0] = OR_r(reg_b,  4);
@@ -442,7 +446,7 @@ void Glouboy::init()
 	opcode[0xB5] = OR_r(reg_l,  4);
     opcode[0xB6] = OR_r(ram[hl],8);
 	opcode[0xB7] = OR_r(reg_a,  4);
-	opcode[0xF6] = OR_r(rom[++PC],8);
+	opcode[0xF6] = OR_r(ram[++PC],8);
     
     
 	opcode[0x88] = ADC_r(reg_b,  4);
@@ -453,7 +457,7 @@ void Glouboy::init()
 	opcode[0x8D] = ADC_r(reg_l,  4);
     opcode[0x8E] = ADC_r(ram[hl],8);
 	opcode[0x8F] = ADC_r(reg_a,  4);
-	opcode[0xCE] = ADC_r(rom[++PC],8);
+	opcode[0xCE] = ADC_r(ram[++PC],8);
     
     
 	opcode[0x98] = SBC_r(reg_b,  4);
@@ -464,7 +468,7 @@ void Glouboy::init()
 	opcode[0x9D] = SBC_r(reg_l,  4);
     opcode[0x9E] = SBC_r(ram[hl],8);
 	opcode[0x9F] = SBC_r(reg_a,  4);
-	opcode[0xDE] = SBC_r(rom[++PC],8);
+	opcode[0xDE] = SBC_r(ram[++PC],8);
     
 	opcode[0xA8] = XOR_r(reg_b,  4);
 	opcode[0xA9] = XOR_r(reg_c,  4);
@@ -474,7 +478,7 @@ void Glouboy::init()
 	opcode[0xAD] = XOR_r(reg_l,  4);
     opcode[0xAE] = XOR_r(ram[hl],8);
 	opcode[0xAF] = XOR_r(reg_a,  4);
-	opcode[0xEE] = XOR_r(rom[++PC],8);
+	opcode[0xEE] = XOR_r(ram[++PC],8);
     
 	opcode[0xB8] = CP_r(reg_b,  4);
 	opcode[0xB9] = CP_r(reg_c,  4);
@@ -484,9 +488,9 @@ void Glouboy::init()
 	opcode[0xBD] = CP_r(reg_l,  4);
     opcode[0xBE] = CP_r(ram[hl],8);
 	opcode[0xBF] = CP_r(reg_a,  4);
-	opcode[0xFE] = CP_r(rom[PC + 1],8);
+	opcode[0xFE] = CP_r(ram[++PC],8);
     
-	opcode[0x18] = { []() { /* JR r8   */  TC += 12;  PC += (signed char)(rom[PC + 1]) + 2; }, "JR 0x%02x" };
+	opcode[0x18] = { []() { /* JR r8   */  TC += 12;  PC += (signed char)(ram[PC + 1]) + 2; }, "JR 0x%02x" };
     opcode[0x20] = JR_X_r8(!flags.Z);
     opcode[0x30] = JR_X_r8(!flags.C);
     opcode[0x28] = JR_X_r8(flags.Z);
@@ -512,8 +516,8 @@ void Glouboy::init()
 		PC += 1;
 	}, "DAA" };
     opcode[0xE9] = { [](){ /* JP (HL)  */ TC += 4;   PC = hl; }, "JP (HL)" };
-	opcode[0xC3] = { []() { /* JUMP A16 */ TC += 16;  PC = rom[PC + 1] | (rom[PC + 2] << 8); }, "JUMP 0x%02x%02x" };
-	opcode[0xCB] = { []() { unsigned int op = rom[PC + 1]; CBopcode[op].funct(); if ((op & 0x07) == 6) { TC += 8; } }, "prefixe CB" };
+	opcode[0xC3] = { []() { /* JUMP A16 */ TC += 16;  PC = ram[PC + 1] | (ram[PC + 2] << 8); }, "JUMP 0x%02x%02x" };
+	opcode[0xCB] = { []() { unsigned int op = ram[PC + 1]; CBopcode[op].funct(); if ((op & 0x07) == 6) { TC += 8; } }, "prefixe CB" };
 	
 	CBopcode[0x00] = RLC_n(reg_b);
     CBopcode[0x01] = RLC_n(reg_c);
@@ -804,13 +808,32 @@ void Glouboy::init()
 	CBopcode[0xFF] = SET(7, reg_a);
 }
 
-
-
+static FILE * f = nullptr;
+bool loggingNewData = false; 
 void Glouboy::execute()
 {
+	if (f)
+	{
+		if (loggingNewData)
+		{
+			fprintf(f, "%04x\n", PC);
+		}
+		else
+		{
+			unsigned int otherPC;
+			fscanf(f, "%04x\n", &otherPC);
+			if (PC != otherPC)
+			{
+				int i = 0;
+				i++;
+			}
+		}
+	}
+
+
 	if (haltMode == false)
 	{
-		unsigned char instruction = rom[PC];
+		unsigned char instruction = ram[PC];
 		opcode[instruction].funct();
 	}
 	else
@@ -818,21 +841,25 @@ void Glouboy::execute()
 		TC += 1;
 	}
 
+	timerUpdate();
 	videoUpdate();
 	handleInterrupts();
 }
 
 void wakeHalteMode()
 {
-	haltMode = false;
-	TC += 4;
+	if (haltMode)
+	{
+		haltMode = false;
+		TC += 4;
+	}
 }
 
 #define imguiRegister(a) {int charRegister = a; if(ImGui::InputInt(#a,&charRegister, 0, 0, inputflag)){ a = charRegister;} }
 
 void Glouboy::update()
 {
-	mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram, 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
+	mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram.data(), 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
 	videoImguiWindow();
 																			  
 //    unsigned char instruction = rom[PC];
@@ -854,12 +881,49 @@ void Glouboy::update()
 			execute();
 	}
 
+	static bool run = false;
 	if (ImGui::Button("run"))
+	{
+		run = !run;
+	}
+	if (ImGui::Button("log"))
+	{
+		if (run == false)
+		{
+			if(loggingNewData)
+			{
+				f = ImFileOpen("log.txt", "wb+");
+			}
+			else
+			{
+				f = ImFileOpen("log.txt", "rb");
+			}
+			
+		}
+		else
+		{
+			fclose(f);
+		}
+		run = !run;
+	}
+	ImGui::SameLine();
+	ImGui::Checkbox("write file", &loggingNewData);
+
+	if (run)
+	{
+		int oldTC = TC;
+		int target = oldTC + 456 * 154;
+		while (target > TC)
+			execute();
+	}
+
+	if (ImGui::Button("run until"))
 	{
 		if (breakpointPC != -1)
 		{
-			while(PC != breakpointPC)
+			do {
 				execute();
+			} while (PC != breakpointPC);
 		}
 	
 	}
@@ -867,7 +931,7 @@ void Glouboy::update()
 	ImGui::InputInt("breakpoint PC", &breakpointPC, 1, 0, inputflag);
 
 	{
-		unsigned char instruction = rom[PC];
+		unsigned char instruction = ram[PC];
 		char instructionLabel[128];
 		int nbPercent = 0;
 		const char * pos = opcode[instruction].opName;
@@ -876,23 +940,26 @@ void Glouboy::update()
 			nbPercent++;
 			pos++;
 		}
-		if (nbPercent == 2)		sprintf(instructionLabel, opcode[instruction].opName, rom[PC + 2], rom[PC + 1]);
-		else					sprintf(instructionLabel, opcode[instruction].opName, (signed char)rom[PC + 1]);
+		if (nbPercent == 2)		sprintf(instructionLabel, opcode[instruction].opName, ram[PC + 2], ram[PC + 1]);
+		else					sprintf(instructionLabel, opcode[instruction].opName, (signed char)ram[PC + 1]);
 
 		ImGui::Text("Current instruction : 0x%04x %s", PC, instructionLabel);
 	}
-	ImGui::Text("Current rom data : 0x%x 0x%x 0x%x", rom[PC], rom[PC + 1], rom[PC + 2]);
+	ImGui::Text("Current rom data : 0x%x 0x%x 0x%x", ram[PC], ram[PC + 1], ram[PC + 2]);
 
-	ImGui::InputInt("SP", &SP, 1, 0, inputflag);
+	ImGui::Text("SP:0x%04x", SP);
 	ImGui::Text("PC:0x%04x", PC);
 	ImGui::Text("AF:0x%04x", af);
 	ImGui::Text("BC:0x%04x", bc);
 	ImGui::Text("DE:0x%04x", de);
 	ImGui::Text("HL:0x%04x", hl);
-
+	ImGui::Checkbox("halt", &haltMode);
+	ImGui::NewLine();
+	ImGui::Text("IF:0x%02x", ram[IO_REGISTER | IF]);
+	ImGui::Text("IE:0x%02x", ram[IO_REGISTER | IE]);
 	ImGui::PushItemWidth(60);
 
-	imguiRegister(rom[PC]); ImGui::SameLine(); imguiRegister(rom[PC + 1]); ImGui::SameLine(); imguiRegister(rom[PC + 2]);
+	imguiRegister(ram[PC]); ImGui::SameLine(); imguiRegister(ram[PC + 1]); ImGui::SameLine(); imguiRegister(ram[PC + 2]);
 
 	ImGui::PopItemWidth();
 	ImGui::PopItemWidth();

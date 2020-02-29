@@ -37,7 +37,7 @@ int stateMode = 0;
 int defaultPalette[4] = { 0xffd3f6ff,0xff75a8f9,0xff6f6beb,0xff583f7c};
 int currentPalette[4];
 
-#define reg_stat ram[IO_REGISTER|STAT]
+#define reg_stat ram[IO_REGISTER | 0x41]
 
 void videoImguiWindow()
 {
@@ -59,7 +59,7 @@ void videoReset()
 	}
 
 	ram[IO_REGISTER | LCDC] = 0x91;
-	ram[IO_REGISTER | STAT] = 0x85;
+	ram[IO_REGISTER | 0x41] = 0x85;
 	ram[IO_REGISTER | SCY]	= 0x00;
 	ram[IO_REGISTER | SCX]  = 0x00;
 	ram[IO_REGISTER | LY]   = 0x00;
@@ -149,7 +149,7 @@ void videoUpdate()
 	int	timeDiff = TC - lastTC;
 	lastTC = TC;
 	int newtotalFrameCycle = (totalFrameCycle + timeDiff) % (154*FULL_LINE_CYCLE);
-	if (newtotalFrameCycle > (VISIBLE_LINE * FULL_LINE_CYCLE + 4))
+	if (newtotalFrameCycle >= (VISIBLE_LINE * FULL_LINE_CYCLE + 4))
 	{
 		if (totalFrameCycle < (VISIBLE_LINE * FULL_LINE_CYCLE + 4))
 		{
@@ -205,31 +205,36 @@ void videoUpdate()
 
 	bool ScreenModeChanged = stateMode != newScreenMode;
 	stateMode = newScreenMode;
+
+  	reg_stat &= 0b11111100;
+  	reg_stat |= stateMode;
+
 	if(ScreenModeChanged)
 	{
 		if (stateMode == 1)
 			videoUpdateBackgoundTexture(); // temp hack
 
-		if (((stateMode == 0) && (reg_stat & (1 << 3))) || // H-BL
-			((stateMode == 2) && (reg_stat & (1 << 5))) || //OAM
-			((stateMode == 1) && ((reg_stat & (1 << 4)) || (reg_stat & (1 << 5)))))		{			trigInterrupt(IRQ_LCDC);
-		}
+		if ((stateMode == 0) && (reg_stat & (1 << 3)))
+			trigInterrupt(IRQ_LCDC);
+
+		if ((stateMode == 2) && (reg_stat & (1 << 5)))
+			trigInterrupt(IRQ_LCDC);
+				if ((stateMode == 1) && (reg_stat & (1 << 4)))			trigInterrupt(IRQ_LCDC);				if ((stateMode == 1) && (reg_stat & (1 << 5)))			trigInterrupt(IRQ_LCDC);
 	}
 
 	// will handle ligne 153 special LY timing later
 }
 
 
-void videoWrite(int registerAddr, int value)
+int videoWrite(int registerAddr, int value)
 {
-	if (registerAddr == LCDC)
+	if (registerAddr == 0x41) // STAT
 	{
-		if (value & 0x80) // LCD POWER
-		{
-			ram[LY] = 0;
-			lastTC = TC;
-		}
+		value &= 0b11111000;
+		value |= reg_stat & 0b00000111;
 	}
+
+
 	if (registerAddr == BGP) // Background Palette
 	{
 		int index = value & 0x03;
@@ -241,4 +246,6 @@ void videoWrite(int registerAddr, int value)
 		index = (value>>6) & 0x03;
 		currentPalette[3] = defaultPalette[index];
 	}
+
+	return value;
 }

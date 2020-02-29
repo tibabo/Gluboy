@@ -1,12 +1,12 @@
 #include "glouboy.h"
 #include "io.h"
 #include "video.h"
-
+#include "timer.h"
 
 #define interruptEnable ram[IO_REGISTER | IE]
 #define interruptFlags ram[IO_REGISTER | IF]
 
-bool InterruptMasterFlag = 0;
+bool InterruptMasterFlag = true;
 
 void disableInterrupt()
 {
@@ -58,7 +58,7 @@ void handleInterrupts()
 	if (!handleInterrupt(IRQ_SERIAL, 0x58))
 	if (!handleInterrupt(IRQ_JOYPAD, 0x60)) {
 	}
-	
+
 	// InterruptMasterFlag is not set immediatelly
 	if (shouldRiseInterruptMasterFlag == 1)
 	{
@@ -68,11 +68,11 @@ void handleInterrupts()
 
 }
 
-void writeRam(int addr, int value)
+void writeRam(unsigned short addr, int value)
 {
 	if ((addr & 0xff00) == 0xff00)
 	{
-		writeIO(0x00ff & addr, value);
+		value = writeIO(0x00ff & addr, value);
 	}
 
 	if (addr < 0x8000)
@@ -83,15 +83,27 @@ void writeRam(int addr, int value)
 	ram[addr] = value;
 }
 
-void writeIO(int registerAddr, int value)
+
+int writeIO(unsigned short registerAddr, int value)
 {
 	if ((registerAddr & 0x40) == 0x40) // video ctrl
 	{
-		videoWrite(registerAddr, value);
+		value = videoWrite(registerAddr, value);
 	}
-	if ((registerAddr == 2) || (registerAddr == 5) || (registerAddr == 6) || (registerAddr == 7)) // timer
+	if (registerAddr == DIV) // timer DIV
 	{
-		int i = 0;
-		i++;
+		value = timerDivWrite();
 	}
+	if (registerAddr == DMA) // timer DIV
+	{
+		int origin = (value << 8) & 0xFF00;
+		memcpy(ram.data() + OAM, ram.data() + origin, 160);
+	}
+
+	if (registerAddr == P1) // timer DIV
+	{
+		value = 0xff;
+	}
+
+	return value;
 }

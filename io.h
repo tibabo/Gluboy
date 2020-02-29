@@ -52,16 +52,18 @@
 #define LYC              0x45
 #define DMA              0x46
 #define BGP	             0x47
-#define OBP0             0x48
+#define OBP0             0x48	
 #define OBP1             0x49
 #define WY               0x4A
 #define WX               0x4B
 #define IE               0xff
 
+#define OAM              0xfe00
+
 void handleInterrupts();
-void writeIO(int registerAddr, int value);
+int  writeIO(unsigned short registerAddr, int value);
 void trigInterrupt(int interrupt);
 void disableInterrupt();
 void enableInterrupt();
 void delayedEnableInterrupt();
-void writeRam(int adresse, int value);
+void writeRam(unsigned short adresse, int value);

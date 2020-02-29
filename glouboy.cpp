@@ -844,6 +844,7 @@ void Glouboy::execute()
 	timerUpdate();
 	videoUpdate();
 	handleInterrupts();
+	handleJoypad();
 }
 
 void wakeHalteMode()

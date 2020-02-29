@@ -67,3 +67,4 @@ void disableInterrupt();
 void enableInterrupt();
 void delayedEnableInterrupt();
 void writeRam(unsigned short adresse, int value);
+void handleJoypad();

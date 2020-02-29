@@ -1,3 +1,4 @@
+#include <GLFW/glfw3.h>
 #include "glouboy.h"
 #include "io.h"
 #include "video.h"
@@ -83,6 +84,9 @@ void writeRam(unsigned short addr, int value)
 	ram[addr] = value;
 }
 
+unsigned char button;
+
+unsigned char direction;
 
 int writeIO(unsigned short registerAddr, int value)
 {
@@ -102,8 +106,25 @@ int writeIO(unsigned short registerAddr, int value)
 
 	if (registerAddr == P1) // timer DIV
 	{
-		value = 0xff;
+		if((value & (1 << 4)) == 0)
+			value = 0xC0 | (1 << 4) | direction;
+		else if ((value & (1 << 5)) == 0)
+			value = 0xC0 | (1 << 5) | button;
+		else
+			value = 0xff;
 	}
 
 	return value;
+}
+
+void handleJoypad()
+{
+	int axes_count = 0, buttons_count = 0;
+	const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axes_count);
+	const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttons_count);
+	if (buttons_count > 13)
+	{
+		button = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
+		direction = buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11] ^ 0x0f; // down up left right
+	}
 }

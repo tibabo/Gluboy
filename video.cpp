@@ -23,12 +23,39 @@
 #include <GL/gl.h>
 #endif
 
+struct oamBlock
+{
+	unsigned char y;
+	unsigned char x;
+	unsigned char pattern;
+	struct
+	{
+		unsigned char dummy0 : 1;
+		unsigned char dummy1 : 1;
+		unsigned char dummy2 : 1;
+		unsigned char dummy3 : 1;
+		unsigned char palette : 1;
+		unsigned char yFlip : 1;
+		unsigned char xFlip : 1;
+		unsigned char priority : 1;
+	} flags;
+};
+
+#define OAM_ADDR 0xFE00
+
+#define SPRITE_INFO_SIZE 4
+#define SPRITE_INFO_COUNT 40
+
 #define FULL_LINE_CYCLE 456
 #define VISIBLE_LINE 144
 #define TILE_SIZE_IN_BYTES 16
 #define NB_TILE (32 * 32)
 int background[256 * 256];
-static GLuint       g_backgroundTexture = 0;
+#define SCREEN_W 160 
+#define SCREEN_H 144
+int screen[SCREEN_W * SCREEN_H];
+static GLuint g_backgroundTexture = 0;
+static GLuint screenTexture = 0;
 int lastTC = 0;
 int totalFrameCycle = 0;
 int currentLineCycle = 0;
@@ -44,6 +71,7 @@ void videoImguiWindow()
 	bool Open = true;
 	if (ImGui::Begin("Video", &Open, ImGuiWindowFlags_NoScrollbar))
 	{
+		ImGui::Image((ImTextureID)(intptr_t)screenTexture, ImVec2(SCREEN_W, SCREEN_H));
 		ImGui::Image((ImTextureID)(intptr_t)g_backgroundTexture, ImVec2(256, 256));
 
 	}
@@ -72,43 +100,90 @@ void videoReset()
 	ram[IO_REGISTER | WX] = 0x00;
 }
 
-
-void videoCreateBackgroundTexture()
+void videoUpdateTexture(GLuint texture, int width, int height, int * data)
 {
-	int width = 256, height = 256;
-	for (int i = 0; i < height * width; i++) background[i] = defaultPalette[0];
+	GLint last_texture;
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glBindTexture(GL_TEXTURE_2D, last_texture);
+}
+
+GLuint  videoCreateTexture(int width, int height, int * data)
+{
+	for (int i = 0; i < height * width; i++) data[i] = defaultPalette[0];
 
 	// Upload texture to graphics system
 	GLint last_texture;
+	GLuint newText;
 	glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
-	glGenTextures(1, &g_backgroundTexture);
-	glBindTexture(GL_TEXTURE_2D, g_backgroundTexture);
+	glGenTextures(1, &newText);
+	glBindTexture(GL_TEXTURE_2D, newText);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, background);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
 	// Restore state
 	glBindTexture(GL_TEXTURE_2D, last_texture);
+
+	return newText;
 }
 
 
 void videoCreateTextures()
 {
-	videoCreateBackgroundTexture();
+	g_backgroundTexture = videoCreateTexture(256, 256, background);
+	screenTexture = videoCreateTexture(SCREEN_W, SCREEN_H, screen);
 }
 
-void videoUpdateBackgoundTexture()
+void paintSprites()
 {
-	int tileMapAddr =  (ram[IO_REGISTER | LCDC] & 0x08) ? 0x9c00 : 0x9800; // BG Tile Map Display Select 
-	int tileDataAddr = 0x8000;// (ram[IO_REGISTER | LCDC] & 0x10) ? 0x8000 : 0x9000; // BG & Window Tile Data Select
+	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
+		return;
+
+	unsigned char offsetX = ram[IO_REGISTER | SCX];
+	unsigned char offsetY = ram[IO_REGISTER | SCY];
+
+	for (int i = 0; i < SPRITE_INFO_COUNT; i++)
+	{
+		struct oamBlock sprite;
+		memcpy(&sprite, ram.data() + OAM_ADDR + i * SPRITE_INFO_SIZE, SPRITE_INFO_SIZE);
+		
+		int tileDataAddr = 0x8000;
+
+		int VRAMBegin = tileDataAddr + sprite.pattern * TILE_SIZE_IN_BYTES;
+		if((sprite.y == 0) || (sprite.y >= (144 + 16)))
+			continue;
+		for (int y = 0; y < 8; y++)
+		{
+			int ramIndex = VRAMBegin + y * 2;
+			unsigned char tileData1 = *(ram.data() + ramIndex);
+			unsigned char tileData2 = *(ram.data() + ramIndex + 1);
+			for (int x = 0; x < 8; x++)
+			{
+				int colorIndex = (((tileData1 >> x) & 1) | (((tileData2 >> x) & 1) << 1)) & 0x03;
+				unsigned char pixelX = (7 - x) + sprite.x - 8 + offsetX;
+				unsigned char pixelY = y + sprite.y - 16 + offsetY;
+				background[ pixelX + pixelY *256 ] = currentPalette[colorIndex];
+			}
+		}
+	}
+}
+
+void paintBackground()
+{
+	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
+		return;
+	int tileMapAddr = (ram[IO_REGISTER | LCDC] & 0x08) ? 0x9c00 : 0x9800; // BG Tile Map Display Select 
+	int tileDataAddr = (ram[IO_REGISTER | LCDC] & 0x10) ? 0x8000 : 0x9000; // BG & Window Tile Data Select
 	for (int i = 0; i < NB_TILE; i++)
 	{
 		int tileIndex = 0;
-		//if(ram[IO_REGISTER | LCDC] & 0x10)
+		if (tileDataAddr == 0x8000)
 			tileIndex = ram[tileMapAddr + i];
-		//else
-		//	tileIndex = (signed char)(ram[tileMapAddr + i]);
+		else
+			tileIndex = (signed char)(ram[tileMapAddr + i]);
 
 		int VRAMBegin = tileDataAddr + tileIndex * TILE_SIZE_IN_BYTES;
 		for (int y = 0; y < 8; y++)
@@ -118,18 +193,43 @@ void videoUpdateBackgoundTexture()
 			unsigned char tileData2 = ram[ramIndex + 1];
 			for (int x = 0; x < 8; x++)
 			{
-				int colorIndex = (((tileData1 >> x)&1) | (((tileData2 >> x)&1) <<1))  & 0x03;
+				int colorIndex = (((tileData1 >> x) & 1) | (((tileData2 >> x) & 1) << 1)) & 0x03;
 
-				background[(7 - x) + y * 256 + i%32 * 8 + i / 32 * 8 * 256] = currentPalette[colorIndex];
+				background[(7 - x) + y * 256 + i % 32 * 8 + i / 32 * 8 * 256] = currentPalette[colorIndex];
 			}
 		}
 	}
-	
-	GLint last_texture;
-	glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
-	glBindTexture(GL_TEXTURE_2D, g_backgroundTexture);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_RGBA,	GL_UNSIGNED_BYTE, background);
-	glBindTexture(GL_TEXTURE_2D, last_texture);
+}
+
+void renderScreen()
+{
+	int y = 0;
+	int x = 0;
+	unsigned char offsetX = ram[IO_REGISTER | SCX];
+	unsigned char offsetY = ram[IO_REGISTER | SCY];
+	while (y < SCREEN_H)
+	{
+		int x = 0;
+		unsigned char backgroundY = y + offsetY;
+		while (x < SCREEN_W)
+		{
+			unsigned char backgroundX = x + offsetX;
+			screen[x + y * SCREEN_W] = background[backgroundX + backgroundY * 256];
+			x++;
+		}
+		y++;
+	}
+}
+
+void videoUpdateBackgoundTexture()
+{
+
+	paintBackground();
+	paintSprites();
+	renderScreen();
+
+	videoUpdateTexture(g_backgroundTexture, 256, 256, background);
+	videoUpdateTexture(screenTexture, SCREEN_W, SCREEN_H, screen);
 }
 
 void videoUpdate()
@@ -164,8 +264,8 @@ void videoUpdate()
 	int newLY = totalFrameCycle / FULL_LINE_CYCLE;
 	ram[IO_REGISTER | LY] = newLY;
 
-	if ((oldLY < ram[IO_REGISTER | LYC]) &&
-		(newLY >= ram[IO_REGISTER | LYC]))
+	if ((oldLY != ram[IO_REGISTER | LYC]) &&
+		(newLY == ram[IO_REGISTER | LYC]))
 	{
 		if (reg_stat & (1 << 6)) // LY=LYC Check Enable 
 		{
@@ -190,7 +290,7 @@ void videoUpdate()
 		newScreenMode = 0;
 		if (currentLineCycle > 4)   newScreenMode = 2;
 		if (currentLineCycle > 80)  newScreenMode = 3;
-		if (currentLineCycle > 150) newScreenMode = 0;
+		if (currentLineCycle > 250) newScreenMode = 0;
 	}
 	else if (newLY == 144)
 	{
@@ -215,11 +315,15 @@ void videoUpdate()
 			videoUpdateBackgoundTexture(); // temp hack
 
 		if ((stateMode == 0) && (reg_stat & (1 << 3)))
+		{
 			trigInterrupt(IRQ_LCDC);
+		}
 
 		if ((stateMode == 2) && (reg_stat & (1 << 5)))
+		{
 			trigInterrupt(IRQ_LCDC);
-				if ((stateMode == 1) && (reg_stat & (1 << 4)))			trigInterrupt(IRQ_LCDC);				if ((stateMode == 1) && (reg_stat & (1 << 5)))			trigInterrupt(IRQ_LCDC);
+		}				if ((stateMode == 1) && (reg_stat & (1 << 4)))		{			trigInterrupt(IRQ_LCDC);		}		if ((stateMode == 1) && (reg_stat & (1 << 5)))		{			trigInterrupt(IRQ_LCDC);
+		}
 	}
 
 	// will handle ligne 153 special LY timing later

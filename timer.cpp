@@ -33,17 +33,19 @@ void timerUpdate()
 {
 	int diffTC = TC - oldTC;
 
-	internalDIV += diffTC;
-	div = internalDIV >> 8;
-
 	int newValue = tima;
 	if (tac & 0x04)
 	{
-		while (nextUpdate < internalDIV)
+		for (int i = 0; i < diffTC; i++)
 		{
-			newValue++;
-			timerUpdateIncrementTreshold();
+			internalDIV ++;
+			if (nextUpdate == internalDIV)
+			{
+				newValue++;
+				timerUpdateIncrementTreshold();
+			}
 		}
+		div = internalDIV >> 8;
 	}
 	
 	if (newValue > 0xff)

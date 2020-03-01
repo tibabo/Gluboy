@@ -125,7 +125,7 @@ std::vector<unsigned char> ram;
 #define SET(b,r)        { [](){ TC += 8; r |= (0x01 << b); PC +=2;}, "SET " #b ", " #r};
 #define SET_HL(b)       { [](){ TC += 8; writeRam(hl, ram[hl] | (0x01 << b)); PC +=2;}, "SET " #b ", (hl)"};
 #define RES(b,r)        { [](){ TC += 8; r &= 0xff^(0x01 << b); PC +=2;} , "RES " #b ", " #r};
-#define RES_HL(b)       { [](){ TC += 8; writeRam(hl, ram[hl]& 0xff^(0x01 << b)); PC +=2;} , "RES " #b ", (hl)"};
+#define RES_HL(b)       { [](){ TC += 8; writeRam(hl, ram[hl] & (0xff^(0x01 << b))); PC +=2;} , "RES " #b ", (hl)"};
 
 void jumpToVector(int vector)
 {
@@ -145,7 +145,7 @@ void Glouboy::init()
 
 	char bundle_path[BUF_SIZE];
 	//GetRessourceBundlePath(bundle_path, BUF_SIZE);
-	sprintf(bundle_path, "%s", "tetris.gb");
+	sprintf(bundle_path, "%s", "mario.gb");
 
 	FILE * f = ImFileOpen(bundle_path, "rb");
 	fseek(f, 0, SEEK_END);
@@ -249,7 +249,7 @@ void Glouboy::init()
 	opcode[0x06] = LD_r_n(reg_b,  8);
 	opcode[0x16] = LD_r_n(reg_d,  8);
 	opcode[0x26] = LD_r_n(reg_h,  8);
-	opcode[0x36] = { []() { TC += 12;  writeRam(ram[hl], ram[PC + 1]); PC += 2; }, "LD (hl), 0x%02x" };
+	opcode[0x36] = { []() { TC += 12;  writeRam(hl, ram[PC + 1]); PC += 2; }, "LD (hl), 0x%02x" };
 	opcode[0x0E] = LD_r_n(reg_c,  8);
 	opcode[0x1E] = LD_r_n(reg_e,  8);
 	opcode[0x2E] = LD_r_n(reg_l,  8);
@@ -838,13 +838,13 @@ void Glouboy::execute()
 	}
 	else
 	{
-		TC += 1;
+		TC += 4;
 	}
 
 	timerUpdate();
 	videoUpdate();
-	handleInterrupts();
 	handleJoypad();
+	handleInterrupts();
 }
 
 void wakeHalteMode()

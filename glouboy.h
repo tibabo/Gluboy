@@ -13,6 +13,7 @@
 #include <vector>
 
 extern std::vector<unsigned char> ram;
+extern unsigned char * rom;
 extern int TC;
 namespace Glouboy {
 	void init();

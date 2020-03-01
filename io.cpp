@@ -76,17 +76,34 @@ void writeRam(unsigned short addr, int value)
 		value = writeIO(0x00ff & addr, value);
 	}
 
+
+	// echo memory
+	if ((addr >= 0xC000) && (addr <= 0xDDFF))
+	{
+		ram[addr - 0xC000 + 0xE000] = value;
+	}
+	if ((addr >= 0xE000) && (addr <= 0xFDFF))
+	{
+		ram[addr - 0xE000 + 0xC000] = value;
+	}
+
 	if (addr < 0x8000)
 	{
+		if ((addr >= 0x2000) && (addr <= 0x3fff))
+		{
+			if (value > 3)
+				return;
+			int bank = value ? value : 1;
+			memcpy(ram.data() + 0x4000, rom + 0x4000 * bank, 0x4000);
+		}
 		return;
 	}
 
 	ram[addr] = value;
 }
 
-unsigned char button;
-
-unsigned char direction;
+unsigned char button    = 0x0f, newButton    = 0x0f;
+unsigned char direction = 0x0f, newDirection = 0x0f;
 
 int writeIO(unsigned short registerAddr, int value)
 {
@@ -100,7 +117,7 @@ int writeIO(unsigned short registerAddr, int value)
 	}
 	if (registerAddr == DMA) // timer DIV
 	{
-		int origin = (value << 8) & 0xFF00;
+		unsigned short origin = (value << 8) & 0xFF00;
 		memcpy(ram.data() + OAM, ram.data() + origin, 160);
 	}
 
@@ -124,7 +141,23 @@ void handleJoypad()
 	const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttons_count);
 	if (buttons_count > 13)
 	{
-		button = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
-		direction = buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11] ^ 0x0f; // down up left right
+		newButton = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
+		newDirection = (buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11]) ^ 0x0f; // down up left right
+		if ((ram[IO_REGISTER | P1] & (1 << 4)) != (1 << 4))
+		{
+			if (newDirection < direction) 
+			{
+				trigInterrupt(IRQ_JOYPAD);
+			}
+		}
+		direction = newDirection;
+		if ((ram[IO_REGISTER | P1] & (1 << 5)) != (1 << 5))
+		{
+			if (newButton < button)
+			{
+				trigInterrupt(IRQ_JOYPAD);
+			}
+		}
+		button = newButton;
 	}
 }

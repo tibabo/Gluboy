@@ -10,9 +10,8 @@
 #define glouboy_h
 
 #include <stdio.h>
-#include <vector>
 
-extern std::vector<unsigned char> ram;
+extern unsigned char ram[0x10000];
 extern unsigned char * rom;
 extern int TC;
 namespace Glouboy {

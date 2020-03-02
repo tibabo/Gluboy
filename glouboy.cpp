@@ -8,7 +8,6 @@
 
 #include "glouboy.h"
 #include <functional>
-#include <vector>
 #include <stdio.h>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -38,8 +37,8 @@ struct opcodeStruct
 	const char * opName;
 };
 
-std::vector<opcodeStruct> opcode;
-std::vector<opcodeStruct> CBopcode;
+opcodeStruct opcode[256];
+opcodeStruct CBopcode[256];
 int TC = 0;
 
 struct {
@@ -74,7 +73,7 @@ unsigned short bc, de, hl;
 #define reg_h  (*(((unsigned char*)&hl) + 1))
 
 
-std::vector<unsigned char> ram;
+unsigned char ram[0x10000];
 
 
 #define update_carry() {flags.H = (carrybits & 0x10)>0; flags.C = (carrybits & 0x100)>0;}
@@ -90,9 +89,9 @@ std::vector<unsigned char> ram;
 #define DEC_ss(a) { [](){ TC += 8;  a--;                                                               PC +=1;}, "DEC " #a }
 #define LD_r_ss(r,ss) { [](){ TC += 8; r = ram[ss];                                                     PC +=1;}, "LD " #r ", (" #ss ")" }
 #define LD_r_r(a,b) { [](){ TC += 4; a = b;                                                             PC +=1;}, "LD " #a ", " #b }
-#define SUB_r(x,clock) {  [](){ TC += clock;  flags.N = 1; int result = reg_a - x; int carrybits = x ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "SUB " #x }
+#define SUB_r(x,clock) {  [](){ TC += clock; unsigned char value = x; flags.N = 1; int result = reg_a - value; int carrybits = value ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "SUB " #x }
 
-#define ADD_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a + x; int carrybits = x ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "ADD A, " #x }
+#define ADD_r(x,clock)  { [](){ TC += clock; unsigned char value = x; flags.N = 0; int result = reg_a + value; int carrybits = value ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "ADD A, " #x }
 
 #define AND_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a & x; reg_a = result; flags.H = 1; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "AND A, " #x }
 #define OR_r(x,clock)   { [](){ TC += clock;  flags.N = 0; int result = reg_a | x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "OR A, " #x }
@@ -145,7 +144,7 @@ void Glouboy::init()
 
 	char bundle_path[BUF_SIZE];
 	//GetRessourceBundlePath(bundle_path, BUF_SIZE);
-	sprintf(bundle_path, "%s", "mario.gb");
+	sprintf(bundle_path, "%s", "r-type.gb");
 
 	FILE * f = ImFileOpen(bundle_path, "rb");
 	fseek(f, 0, SEEK_END);
@@ -158,12 +157,10 @@ void Glouboy::init()
 
 	videoCreateTextures();
 
-	// clear RAM
-	ram.resize(0x10000,0);
 
 	// init ram with rom
 	assert(romSize >= 0x8000);
-	memcpy(ram.data(), rom, 0x8000);
+	memcpy(ram, rom, 0x8000);
 
 
 	// based on no$gmb
@@ -185,8 +182,7 @@ void Glouboy::init()
 	videoReset();
 
 	breakpointPC = -1;
-	CBopcode.resize(256);
-	opcode.resize(256);
+
 	for (int i = 0; i < 256; i++)
 	{
 		opcode[i] = { []() {
@@ -860,7 +856,7 @@ void wakeHalteMode()
 
 void Glouboy::update()
 {
-	mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram.data(), 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
+	mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram, 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
 	videoImguiWindow();
 																			  
 //    unsigned char instruction = rom[PC];

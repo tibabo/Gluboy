@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include <string.h>
 #include "glouboy.h"
 #include "io.h"
 #include "video.h"
@@ -78,6 +79,13 @@ void writeRam(unsigned short addr, int value)
 
 
 	// echo memory
+	if (addr == 0xC202)
+	{
+		int i = 0;
+		i++;
+	}
+
+	// echo memory
 	if ((addr >= 0xC000) && (addr <= 0xDDFF))
 	{
 		ram[addr - 0xC000 + 0xE000] = value;
@@ -89,12 +97,20 @@ void writeRam(unsigned short addr, int value)
 
 	if (addr < 0x8000)
 	{
-		if ((addr >= 0x2000) && (addr <= 0x3fff))
+		int cartType = ram[0x0147];
+		if ((cartType > 0 ) && (cartType < 4))
 		{
-			if (value > 3)
-				return;
-			int bank = value ? value : 1;
-			memcpy(ram.data() + 0x4000, rom + 0x4000 * bank, 0x4000);
+			static char upper = 0;
+			static char bank = 0;
+			if ((addr >= 0x4000) && (addr <= 0x5fff))
+			{
+				upper = value;
+			}
+			if ((addr >= 0x2000) && (addr <= 0x3fff))
+			{
+				bank = value ? value : 1;
+			}
+			memcpy(ram + 0x4000, rom + 0x4000 * ((upper << 5) | bank), 0x4000);
 		}
 		return;
 	}
@@ -118,7 +134,7 @@ int writeIO(unsigned short registerAddr, int value)
 	if (registerAddr == DMA) // timer DIV
 	{
 		unsigned short origin = (value << 8) & 0xFF00;
-		memcpy(ram.data() + OAM, ram.data() + origin, 160);
+		memcpy(ram + OAM, ram + origin, 160);
 	}
 
 	if (registerAddr == P1) // timer DIV
@@ -136,6 +152,14 @@ int writeIO(unsigned short registerAddr, int value)
 
 void handleJoypad()
 {
+	static int target = TC;
+
+	if (target > TC)
+	{
+		return;
+	}
+	target = TC + 456 * 154;
+
 	int axes_count = 0, buttons_count = 0;
 	const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axes_count);
 	const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttons_count);
@@ -143,7 +167,7 @@ void handleJoypad()
 	{
 		newButton = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
 		newDirection = (buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11]) ^ 0x0f; // down up left right
-		if ((ram[IO_REGISTER | P1] & (1 << 4)) != (1 << 4))
+	//	if ((ram[IO_REGISTER | P1] & (1 << 4)) != (1 << 4))
 		{
 			if (newDirection < direction) 
 			{
@@ -151,7 +175,7 @@ void handleJoypad()
 			}
 		}
 		direction = newDirection;
-		if ((ram[IO_REGISTER | P1] & (1 << 5)) != (1 << 5))
+	//	if ((ram[IO_REGISTER | P1] & (1 << 5)) != (1 << 5))
 		{
 			if (newButton < button)
 			{

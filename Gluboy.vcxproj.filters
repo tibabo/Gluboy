@@ -16,6 +16,9 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{cc6a045f-0f39-442f-ad5e-4753b82c6ed6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\EASTL">
+      <UniqueIdentifier>{14dbad48-bba4-4626-80d6-48b4efab9ec7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -103,6 +106,33 @@
     </ClCompile>
     <ClCompile Include="timer.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\hashtable.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\intrusive_list.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\numeric_limits.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\red_black_tree.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\string.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\thread_support.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\allocator_eastl.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\assert.cpp">
+      <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\EASTL\source\fixed_pool.cpp">
+      <Filter>Source Files\EASTL</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

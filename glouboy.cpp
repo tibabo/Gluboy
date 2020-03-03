@@ -85,7 +85,7 @@ unsigned char ram[0x10000];
 #define LD_r_n(a,clock) { [](){ TC += clock;  a = ram[PC + 1];                                                     PC +=2;}, "LD " #a ", 0x%02x" }
 #define LD_ss_n(a) {[](){ TC += 12; a = ram[PC + 1] | (ram[PC + 2]<<8);                                            PC +=3;}, "LD " #a ", 0x%02x%02x" }
 #define LD_ssp_r(a,r) {[](){ TC += 8;               writeRam(a,r);                                                 PC +=1;}, "LD (" #a "), A" }
-#define ADD_ss_ss(a,b) {[](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = (sum & 0xFFFF) ^ a ^ b ^ 0x1000;  a = sum; flags.C = sum & 0x10000; PC +=1;}, "ADD " #a ", " #b } 
+#define ADD_ss_ss(a,b) {[](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = (sum & 0xFFFF) ^ a ^ b ^ 0x1000;  a = sum; flags.C = sum > 0xFFFF; PC +=1;}, "ADD " #a ", " #b } 
 #define DEC_ss(a) { [](){ TC += 8;  a--;                                                               PC +=1;}, "DEC " #a }
 #define LD_r_ss(r,ss) { [](){ TC += 8; r = ram[ss];                                                     PC +=1;}, "LD " #r ", (" #ss ")" }
 #define LD_r_r(a,b) { [](){ TC += 4; a = b;                                                             PC +=1;}, "LD " #a ", " #b }

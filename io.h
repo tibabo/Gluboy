@@ -60,7 +60,7 @@
 
 #define OAM              0xfe00
 
-void handleInterrupts();
+bool handleInterrupts();
 int  writeIO(unsigned short registerAddr, int value);
 void trigInterrupt(int interrupt);
 void disableInterrupt();

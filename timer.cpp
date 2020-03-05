@@ -19,7 +19,11 @@ int timerDivWrite()
 
 void timerUpdate()
 {
+	internalDIV += TC;
+	div = internalDIV >> 8;
+
 	int tempTima = tima;
+
 	if (tac & 0x04)
 	{
 		accu += TC;
@@ -44,9 +48,6 @@ void timerUpdate()
 			accu -= 256;
 			tempTima++;
 		}
-
-		internalDIV += TC;
-		div = internalDIV >> 8;
 	}
 	
 	if (tempTima > 0xff)

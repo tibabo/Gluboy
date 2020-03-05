@@ -229,8 +229,8 @@ void paintFullBackground()
 
 void paintBackground(unsigned char line)
 {
-// 	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
-// 		return;
+	if ((ram[IO_REGISTER | LCDC] & 0x01) == 0)
+		return;
 	int tileMapAddr = (ram[IO_REGISTER | LCDC] & 0x08) ? 0x9c00 : 0x9800; // BG Tile Map Display Select 
 	int tileDataAddr = (ram[IO_REGISTER | LCDC] & 0x10) ? 0x8000 : 0x9000; // BG & Window Tile Data Select
 	unsigned char offsetX = ram[IO_REGISTER | SCX];
@@ -269,6 +269,8 @@ void paintBackground(unsigned char line)
 
 void paintWindow(int line)
 {
+	if ((ram[IO_REGISTER | LCDC] & 0x01) == 0)
+		return;
 	if ((ram[IO_REGISTER | LCDC] & 0x20) == 0)
 		return;
 	int tileMapAddr = (ram[IO_REGISTER | LCDC] & 0x40) ? 0x9c00 : 0x9800; // Window Tile Map Display Select 

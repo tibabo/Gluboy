@@ -6,57 +6,56 @@
 #define tma ram[IO_REGISTER | TMA]
 #define div ram[IO_REGISTER | DIV]
 
-static int oldTC = 0;
 unsigned short internalDIV = 0xABCC;
 unsigned short nextUpdate = 0xABCC;
-void timerUpdateIncrementTreshold()
-{
-	if ((tac & 0x03) == 0)
-		nextUpdate = internalDIV + 4096;
-	if ((tac & 0x03) == 1)
-		nextUpdate = internalDIV + 16;
-	if ((tac & 0x03) == 2)
-		nextUpdate = internalDIV + 64;
-	if ((tac & 0x03) == 3)
-		nextUpdate = internalDIV + 256;
-}
+
+int accu = 0;
 
 int timerDivWrite()
 {
-	oldTC = TC;
 	internalDIV = 0;
-	timerUpdateIncrementTreshold();
 	return 0;
 }
 
 void timerUpdate()
 {
-	int diffTC = TC - oldTC;
-
-	int newValue = tima;
+	int tempTima = tima;
 	if (tac & 0x04)
 	{
-		for (int i = 0; i < diffTC; i++)
+		accu += TC;
+	
+		if (((tac & 0x03) == 0) && (accu >= 4096))
 		{
-			internalDIV ++;
-			if (nextUpdate == internalDIV)
-			{
-				newValue++;
-				timerUpdateIncrementTreshold();
-			}
+			accu -= 4096;
+			tempTima++;
 		}
+		if (((tac & 0x03) == 1) && (accu >= 16))
+		{
+			accu -= 16;
+			tempTima++;
+		}
+		if (((tac & 0x03) == 2) && (accu >= 64))
+		{
+			accu -= 64;
+			tempTima++;
+		}
+		if (((tac & 0x03) == 3) && (accu >= 256))
+		{
+			accu -= 256;
+			tempTima++;
+		}
+
+		internalDIV += TC;
 		div = internalDIV >> 8;
 	}
 	
-	if (newValue > 0xff)
+	if (tempTima > 0xff)
 	{
 		tima = tma;
 		trigInterrupt(IRQ_TIMER);
 	}
 	else
 	{
-		tima = newValue;
-
+		tima = tempTima;
 	}
-	oldTC = TC;
 }

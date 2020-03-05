@@ -27,6 +27,7 @@ unsigned char * rom = 0;
 long romSize;
 unsigned short PC;
 int breakpointPC;
+int breakpointOpcode;
 unsigned short SP;
 bool haltMode = false;
 
@@ -39,7 +40,7 @@ struct opcodeStruct
 
 opcodeStruct opcode[256];
 opcodeStruct CBopcode[256];
-int TC = 0;
+unsigned char TC = 0;
 
 struct {
 	struct
@@ -85,7 +86,7 @@ unsigned char ram[0x10000];
 #define LD_r_n(a,clock) { [](){ TC += clock;  a = ram[PC + 1];                                                     PC +=2;}, "LD " #a ", 0x%02x" }
 #define LD_ss_n(a) {[](){ TC += 12; a = ram[PC + 1] | (ram[PC + 2]<<8);                                            PC +=3;}, "LD " #a ", 0x%02x%02x" }
 #define LD_ssp_r(a,r) {[](){ TC += 8;               writeRam(a,r);                                                 PC +=1;}, "LD (" #a "), A" }
-#define ADD_ss_ss(a,b) {[](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = (sum & 0xFFFF) ^ a ^ b ^ 0x1000;  a = sum; flags.C = sum > 0xFFFF; PC +=1;}, "ADD " #a ", " #b } 
+#define ADD_ss_ss(a,b) {[](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = ((a & 0xfff) + (b & 0xfff)) > 0xfff;  a = sum; flags.C = sum > 0xFFFF; PC +=1;}, "ADD " #a ", " #b } 
 #define DEC_ss(a) { [](){ TC += 8;  a--;                                                               PC +=1;}, "DEC " #a }
 #define LD_r_ss(r,ss) { [](){ TC += 8; r = ram[ss];                                                     PC +=1;}, "LD " #r ", (" #ss ")" }
 #define LD_r_r(a,b) { [](){ TC += 4; a = b;                                                             PC +=1;}, "LD " #a ", " #b }
@@ -113,7 +114,7 @@ unsigned char ram[0x10000];
 #define RLC_n(r)        { [](){ TC += 8; char carry = (r & 0x80)>>7; r = (r << 1) | carry; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RLC " #r }
 #define RRC_n(r)        { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | carry<<7; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RRC " #r }
 #define RL_n(r)         { [](){ TC += 8; char carry = (r & 0x80)>>7; r = (r << 1) | flags.C; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RL " #r }
-#define RR_n(r)         { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | carry<<7; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RR " #r }
+#define RR_n(r)         { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | (flags.C<<7); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RR " #r }
 #define SLA_n(r)        { [](){ TC += 8; flags.C = (r & 0x80)>>7; r = (r << 1); flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SLA " #r }
 #define SRA_n(r)        { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | (r & 0x80); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SRA " #r }
 #define SWAP(r)         { [](){ TC += 8; r = r>>4 | r<<4; flags.C = 0; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SWAP " #r }
@@ -144,7 +145,8 @@ void Glouboy::init()
 
 	char bundle_path[BUF_SIZE];
 	//GetRessourceBundlePath(bundle_path, BUF_SIZE);
-	sprintf(bundle_path, "%s", "r-type.gb");
+	sprintf(bundle_path, "%s", "05-op rp.gb");
+//	sprintf(bundle_path, "%s", "mario.gb");
 
 	FILE * f = ImFileOpen(bundle_path, "rb");
 	fseek(f, 0, SEEK_END);
@@ -175,7 +177,7 @@ void Glouboy::init()
 	hl = 0x014D;
 	SP = 0xfffe;
 	PC = 0x100;
-	TC = 81;
+
 
 	ram[IO_REGISTER | P1] = 0xff;
 
@@ -351,15 +353,15 @@ void Glouboy::init()
 	opcode[0xF8] = /* LD HL,SP+r8*/{ []() { TC += 12; flags.N = 0; flags.Z = 0;
 										  int x = (signed char)(ram[PC + 1]);
 										  int result = SP + x;
-										  int carrybits = x ^ SP ^ result;
-										  update_carry();
+										  flags.C = (result & 0xff) < (SP & 0xff);
+										  flags.H = (result & 0x0f) < (SP & 0x0f);
 										  hl = result;
 										  PC += 2; }, "LD HL,SP+0x%02x" };
 	opcode[0xE8] = /* ADD SP,r8*/{ []() { TC += 16; flags.N = 0; flags.Z = 0;
 										  int x = (signed char)(ram[PC + 1]);
 										  int result = SP + x;
-										  int carrybits = x ^ SP ^ result;
-										  update_carry();
+										  flags.C = (result & 0xff) < (SP & 0xff);
+										  flags.H = (result & 0x0f) < (SP & 0x0f);
 										  SP = result;
 										  PC += 2; }, "ADD SP,0x%02x" };
 	opcode[0xC2] = JP_X_A16(!flags.Z);
@@ -496,15 +498,17 @@ void Glouboy::init()
 	opcode[0x37] = { [](){ /* SCF */ TC += 4; flags.C = 1; flags.N = 0; flags.H = 0; PC += 1;}, "SCF" };
 	opcode[0x27] = { [](){ /* DAA */ 
 		TC += 4; 
+
 		if (!flags.N)
 		{
-			if (flags.H || ((reg_a & 0xF) > 9)) { reg_a += 0x06; flags.C = 0; }
-			if (flags.C ||  (reg_a > 0x9F))     { reg_a += 0x60; flags.C = 1; }
+			if (flags.C || (reg_a > 0x99))          { reg_a += 0x60; flags.C = 1; }
+			if (flags.H || ((reg_a & 0x0F) > 0x09)) { reg_a += 0x06; }
+
 		}
 		else
 		{
-			if (flags.H) { reg_a -= 0x06; flags.C = 0; }
-			if (flags.C) { reg_a -= 0x60; flags.C = 1; }
+			if (flags.C) { reg_a -= 0x60; }
+			if (flags.H) { reg_a -= 0x06; }
 		}
 		
 		flags.H = 0;
@@ -808,6 +812,7 @@ static FILE * f = nullptr;
 bool loggingNewData = false; 
 void Glouboy::execute()
 {
+	TC = 0;
 	if (f)
 	{
 		if (loggingNewData)
@@ -837,6 +842,7 @@ void Glouboy::execute()
 		TC += 4;
 	}
 
+	flags.dummy0 = 0; flags.dummy1 = 0;	flags.dummy2 = 0; flags.dummy3 = 0;
 	timerUpdate();
 	videoUpdate();
 	handleJoypad();
@@ -872,10 +878,13 @@ void Glouboy::update()
 
 	if (ImGui::Button("run 1 frame F4") || ImGui::IsKeyReleased(KEY_F4))
 	{
-		int oldTC = TC;
-		int target = oldTC + 456 * 154;
-		while(target > TC)
+		int accuTC = 0;
+		int target = 456 * 154;
+		while (target > accuTC)
+		{
 			execute();
+			accuTC += TC;
+		}
 	}
 
 	static bool run = false;
@@ -908,10 +917,13 @@ void Glouboy::update()
 
 	if (run)
 	{
-		int oldTC = TC;
-		int target = oldTC + 456 * 154;
-		while (target > TC)
+		int accuTC = 0;
+		int target = 456 * 154;
+		while (target > accuTC)
+		{
 			execute();
+			accuTC += TC;
+		}
 	}
 
 	if (ImGui::Button("run until"))
@@ -922,10 +934,23 @@ void Glouboy::update()
 				execute();
 			} while (PC != breakpointPC);
 		}
-	
 	}
 	ImGui::SameLine();
 	ImGui::InputInt("breakpoint PC", &breakpointPC, 1, 0, inputflag);
+	if (ImGui::Button("run until opcode"))
+	{
+		if (breakpointOpcode != -1)
+		{
+			int nextOp = -1;
+			do {
+				execute();
+				nextOp = ram[PC] << 16 | ram[PC + 1] << 8 | ram[PC + 2];
+			} while (breakpointOpcode != nextOp);
+		}
+	}
+	ImGui::SameLine();
+	ImGui::InputInt("breakpoint oppcode", &breakpointOpcode, 1, 0, inputflag);
+
 
 	{
 		unsigned char instruction = ram[PC];
@@ -1009,7 +1034,8 @@ void Glouboy::update()
 		imguiRegister(reg_f);
 		imguiRegister(reg_h);
 		imguiRegister(reg_l);
-
+		imguiRegister(SP);
+		imguiRegister(PC);
 		imguiRegister(af);
 		imguiRegister(bc);
 		imguiRegister(de);

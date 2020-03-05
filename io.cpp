@@ -127,17 +127,18 @@ int writeIO(unsigned short registerAddr, int value)
 	{
 		value = videoWrite(registerAddr, value);
 	}
-	if (registerAddr == DIV) // timer DIV
+	if (registerAddr == DIV)
 	{
 		value = timerDivWrite();
 	}
-	if (registerAddr == DMA) // timer DIV
+
+	if (registerAddr == DMA)
 	{
 		unsigned short origin = (value << 8) & 0xFF00;
 		memcpy(ram + OAM, ram + origin, 160);
 	}
 
-	if (registerAddr == P1) // timer DIV
+	if (registerAddr == P1) 
 	{
 		if((value & (1 << 4)) == 0)
 			value = 0xC0 | (1 << 4) | direction;
@@ -152,13 +153,13 @@ int writeIO(unsigned short registerAddr, int value)
 
 void handleJoypad()
 {
-	static int target = TC;
-
-	if (target > TC)
+	static int target = 456 * 154;
+	target -= TC;
+	if (target > 0)
 	{
 		return;
 	}
-	target = TC + 456 * 154;
+	target = 456 * 154;
 
 	int axes_count = 0, buttons_count = 0;
 	const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axes_count);

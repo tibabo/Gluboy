@@ -57,7 +57,7 @@ int background[256 * 256];
 int screen[SCREEN_W * SCREEN_H];
 static GLuint g_backgroundTexture = 0;
 static GLuint screenTexture = 0;
-int lastTC = 0;
+
 int totalFrameCycle = 0;
 int currentLineCycle = 0;
 int stateMode = 0;
@@ -142,7 +142,7 @@ void videoCreateTextures()
 	screenTexture = videoCreateTexture(SCREEN_W, SCREEN_H, screen);
 }
 
-void paintSprites()
+void paintSprites(int line)
 {
 	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
 		return;
@@ -161,6 +161,8 @@ void paintSprites()
 
 		int VRAMBegin = tileDataAddr + sprite.pattern * TILE_SIZE_IN_BYTES;
 		if((sprite.y == 0) || (sprite.y >= (144 + 16)))
+			continue;
+		if ((line < (sprite.y - 16)) || (line >= (sprite.y - 16 + nbLinePerSprite)))
 			continue;
 		for (int y = 0; y < nbLinePerSprite; y++)
 		{
@@ -227,8 +229,8 @@ void paintFullBackground()
 
 void paintBackground(unsigned char line)
 {
-	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
-		return;
+// 	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
+// 		return;
 	int tileMapAddr = (ram[IO_REGISTER | LCDC] & 0x08) ? 0x9c00 : 0x9800; // BG Tile Map Display Select 
 	int tileDataAddr = (ram[IO_REGISTER | LCDC] & 0x10) ? 0x8000 : 0x9000; // BG & Window Tile Data Select
 	unsigned char offsetX = ram[IO_REGISTER | SCX];
@@ -351,9 +353,7 @@ void videoUpdate()
 		return;
 	}
 	
-	int	timeDiff = TC - lastTC;
-	lastTC = TC;
-	int newtotalFrameCycle = (totalFrameCycle + timeDiff) % (154*FULL_LINE_CYCLE);
+	int newtotalFrameCycle = (totalFrameCycle + TC) % (154*FULL_LINE_CYCLE);
 	if (newtotalFrameCycle >= (VISIBLE_LINE * FULL_LINE_CYCLE + 4))
 	{
 		if (totalFrameCycle < (VISIBLE_LINE * FULL_LINE_CYCLE + 4))
@@ -384,7 +384,7 @@ void videoUpdate()
 		reg_stat &= ~(1 << 2); // LY=LYC Comparison Signal 
 
 
-	currentLineCycle += timeDiff;
+	currentLineCycle += TC;
 	if (currentLineCycle >= FULL_LINE_CYCLE)
 	{
 		currentLineCycle -= FULL_LINE_CYCLE;
@@ -419,7 +419,6 @@ void videoUpdate()
 		if (stateMode == 1)
 		{
 			paintFullBackground();
-			paintSprites();
 			videoUpdateBackgoundTexture(); // temp hack
 			if (reg_stat & (1 << 4))			{				trigInterrupt(IRQ_LCDC);			}			if (reg_stat & (1 << 5))			{				trigInterrupt(IRQ_LCDC);
 			}
@@ -434,7 +433,7 @@ void videoUpdate()
 		{
 			paintBackground(newLY);
  			paintWindow(newLY);
-// 			paintSprites(newLY);
+ 			paintSprites(newLY);
 
 			if (reg_stat & (1 << 5))
 			{
@@ -464,6 +463,11 @@ int videoWrite(int registerAddr, int value)
 	{
 		value &= 0b11111000;
 		value |= reg_stat & 0b00000111;
+	}
+	else if (registerAddr == LCDC) // STAT
+	{
+		int i = 0;
+		i++;
 	}
 	else if (registerAddr == BGP)
 	{

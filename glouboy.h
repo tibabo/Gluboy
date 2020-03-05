@@ -13,7 +13,7 @@
 
 extern unsigned char ram[0x10000];
 extern unsigned char * rom;
-extern int TC;
+extern unsigned char TC;
 namespace Glouboy {
 	void init();
 	void update();

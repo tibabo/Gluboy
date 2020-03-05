@@ -339,7 +339,7 @@ void Glouboy::init()
 	opcode[0x4F] = LD_r_r(reg_c,reg_a);
 	opcode[0x5F] = LD_r_r(reg_e,reg_a);
 	opcode[0x6F] = LD_r_r(reg_l,reg_a);
-	opcode[0x7F] = LD_r_r(reg_a,reg_l);
+	opcode[0x7F] = LD_r_r(reg_a,reg_a);
 	
 	opcode[0xE2] = /* LD (C) A   */{ []() { TC += 8; writeRam(0xff00 | reg_c, reg_a); PC += 1; }, " LD (C) A" };
 	opcode[0xF2] = /* LD  A (C)  */{ []() { TC += 8; reg_a = ram[0xff00 | reg_c]; PC += 1; }, "LD  A (C)" };

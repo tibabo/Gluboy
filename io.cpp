@@ -4,6 +4,7 @@
 #include "io.h"
 #include "video.h"
 #include "timer.h"
+#include "cpu.h"
 
 #define interruptEnable ram[IO_REGISTER | IE]
 #define interruptFlags ram[IO_REGISTER | IF]

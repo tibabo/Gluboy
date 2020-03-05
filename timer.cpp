@@ -1,6 +1,6 @@
 #include "glouboy.h"
 #include "io.h"
-
+#include "cpu.h"
 #define tac ram[IO_REGISTER | TAC]
 #define tima ram[IO_REGISTER | TIMA]
 #define tma ram[IO_REGISTER | TMA]

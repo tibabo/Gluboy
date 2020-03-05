@@ -2,6 +2,7 @@
 
 #include "glouboy.h"
 #include "io.h"
+#include "cpu.h"
 
 #if defined(_MSC_VER) && _MSC_VER <= 1500 // MSVC 2008 or earlier
 #include <stddef.h>     // intptr_t
@@ -151,20 +152,40 @@ void paintSprites(int line)
 	if (ram[IO_REGISTER | LCDC] & 0x04)
 		nbLinePerSprite = 16;
 
+	struct oamBlock * spriteTab = (struct oamBlock *)(ram + OAM_ADDR);
+	static char indexList[SPRITE_INFO_COUNT];
+	if (line == 0)
+	{
+		// bubble sort sprite by x	
+		for (int i = 0; i < SPRITE_INFO_COUNT; i++) indexList[i] = i;
+		for (int c = 0; c < SPRITE_INFO_COUNT - 1; c++)
+		{
+			for (int d = 0; d < SPRITE_INFO_COUNT - c - 1; d++)
+			{
+				if (spriteTab[indexList[d]].x < spriteTab[indexList[d + 1]].x)
+				{
+					int swap = indexList[d];
+					indexList[d] = indexList[d + 1];
+					indexList[d + 1] = swap;
+				}
+			}
+		}
+	}
+
 	for (int i = 0; i < SPRITE_INFO_COUNT; i++)
 	{
-		struct oamBlock sprite;
-		memcpy(&sprite, ram + OAM_ADDR + i * SPRITE_INFO_SIZE, SPRITE_INFO_SIZE);
+		struct oamBlock * sprite = (struct oamBlock *)(ram + OAM_ADDR + indexList[i] * SPRITE_INFO_SIZE);
 		
-		int * palette = sprite.flags.palette ? spritePalette1 : spritePalette0;
+		int * palette = sprite->flags.palette ? spritePalette1 : spritePalette0;
 		int tileDataAddr = 0x8000;
 
-		int VRAMBegin = tileDataAddr + sprite.pattern * TILE_SIZE_IN_BYTES;
-		if((sprite.y == 0) || (sprite.y >= (144 + 16)))
+		int VRAMBegin = tileDataAddr + sprite->pattern * TILE_SIZE_IN_BYTES;
+		if((sprite->y == 0) || (sprite->y >= (144 + 16)))
 			continue;
-		if ((line < (sprite.y - 16)) || (line >= (sprite.y - 16 + nbLinePerSprite)))
+		if ((line < (sprite->y - 16)) || (line >= (sprite->y - 16 + nbLinePerSprite)))
 			continue;
-		for (int y = 0; y < nbLinePerSprite; y++)
+		unsigned char y = (sprite->flags.yFlip) ? nbLinePerSprite -1 - line + sprite->y - 16 : line - sprite->y + 16;
+
 		{
 			int ramIndex = VRAMBegin + y * 2;
 			unsigned char tileData1 = *(ram + ramIndex);
@@ -174,20 +195,20 @@ void paintSprites(int line)
 				int colorIndex = (((tileData1 >> x) & 1) | (((tileData2 >> x) & 1) << 1)) & 0x03;
 				if (colorIndex) // transparency
 				{
-					unsigned char pixelX = (sprite.flags.xFlip ? x : (7 - x)) + sprite.x - 8;
-					unsigned char pixelY = (sprite.flags.yFlip ? (7 - y) : y) + sprite.y - 16;
+					unsigned char pixelX = (sprite->flags.xFlip ? x : (7 - x)) + sprite->x - 8;
+
 					if ((pixelX >= 0) && (pixelX < SCREEN_W))
 					{
-						if (sprite.flags.priority)
+						if (sprite->flags.priority)
 						{
-							if (screen[pixelX + pixelY * SCREEN_W] == backgroundPalette[0])
+							if (screen[pixelX + line * SCREEN_W] == backgroundPalette[0])
 							{
-								screen[pixelX + pixelY * SCREEN_W] = palette[colorIndex];
+								screen[pixelX + line * SCREEN_W] = palette[colorIndex];
 							}
 						}
 						else
 						{
-							screen[pixelX + pixelY * SCREEN_W] = palette[colorIndex];
+							screen[pixelX + line * SCREEN_W] = palette[colorIndex];
 						}
 					}
 					
@@ -332,11 +353,8 @@ void renderScreen()
 	}
 }
 
-void videoUpdateBackgoundTexture()
+void videoUpdateTextures()
 {
-
-	//renderScreen();
-
 	videoUpdateTexture(g_backgroundTexture, 256, 256, background);
 	videoUpdateTexture(screenTexture, SCREEN_W, SCREEN_H, screen);
 }
@@ -421,7 +439,7 @@ void videoUpdate()
 		if (stateMode == 1)
 		{
 			paintFullBackground();
-			videoUpdateBackgoundTexture(); // temp hack
+			videoUpdateTextures(); // temp hack
 			if (reg_stat & (1 << 4))			{				trigInterrupt(IRQ_LCDC);			}			if (reg_stat & (1 << 5))			{				trigInterrupt(IRQ_LCDC);
 			}
 		}

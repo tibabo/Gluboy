@@ -11,9 +11,8 @@
 
 #include <stdio.h>
 
-extern unsigned char ram[0x10000];
-extern unsigned char * rom;
-extern unsigned char TC;
+#define imguiRegister(a) {int charRegister = a; if(ImGui::InputInt(#a,&charRegister, 0, 0, ImGuiInputTextFlags_CharsHexadecimal)){ a = charRegister;} }
+
 namespace Glouboy {
 	void init();
 	void update();

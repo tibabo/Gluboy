@@ -72,6 +72,12 @@
     <ClInclude Include="timer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="audio.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cpu.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glouboy.cpp">
@@ -133,6 +139,12 @@
     </ClCompile>
     <ClCompile Include="libs\EASTL\source\fixed_pool.cpp">
       <Filter>Source Files\EASTL</Filter>
+    </ClCompile>
+    <ClCompile Include="audio.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cpu.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

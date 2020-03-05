@@ -132,7 +132,6 @@ void jumpToVector(int vector)
 	ram[--SP] = (unsigned char)(PC >> 8);
 	ram[--SP] = (unsigned char)PC;
 	PC = vector;
-	TC += 20;
 }
 
 void Glouboy::init()
@@ -831,8 +830,11 @@ void Glouboy::execute()
 		}
 	}
 
-
-	if (haltMode == false)
+	if (handleInterrupts())
+	{
+		TC += 20;
+	}
+	else if (haltMode == false)
 	{
 		unsigned char instruction = ram[PC];
 		opcode[instruction].funct();
@@ -843,10 +845,9 @@ void Glouboy::execute()
 	}
 
 	flags.dummy0 = 0; flags.dummy1 = 0;	flags.dummy2 = 0; flags.dummy3 = 0;
-	timerUpdate();
 	videoUpdate();
 	handleJoypad();
-	handleInterrupts();
+	timerUpdate();
 }
 
 void wakeHalteMode()

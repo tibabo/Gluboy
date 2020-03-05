@@ -47,19 +47,18 @@ bool handleInterrupt(int flag, int vector)
 	return false;
 }
 
-void handleInterrupts()
+bool handleInterrupts()
 {
 	if (interruptEnable & interruptFlags)
 	{
 		wakeHalteMode();
 	}
 
-	if (!handleInterrupt(IRQ_V_Blank, 0x40))
-	if (!handleInterrupt(IRQ_LCDC, 0x48))
-	if (!handleInterrupt(IRQ_TIMER, 0x50))
-	if (!handleInterrupt(IRQ_SERIAL, 0x58))
-	if (!handleInterrupt(IRQ_JOYPAD, 0x60)) {
-	}
+	if (handleInterrupt(IRQ_V_Blank, 0x40)) return true;
+	if (handleInterrupt(IRQ_LCDC, 0x48)) return true;
+	if (handleInterrupt(IRQ_TIMER, 0x50)) return true;
+	if (handleInterrupt(IRQ_SERIAL, 0x58)) return true;
+	if (handleInterrupt(IRQ_JOYPAD, 0x60)) return true;
 
 	// InterruptMasterFlag is not set immediatelly
 	if (shouldRiseInterruptMasterFlag == 1)
@@ -67,7 +66,7 @@ void handleInterrupts()
 		shouldRiseInterruptMasterFlag = 0;
 		InterruptMasterFlag = true;
 	}
-
+	return false;
 }
 
 void writeRam(unsigned short addr, int value)

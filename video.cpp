@@ -439,7 +439,7 @@ void videoUpdate()
 		if (stateMode == 1)
 		{
 			paintFullBackground();
-			videoUpdateTextures(); // temp hack
+			videoUpdateTextures(); 
 			if (reg_stat & (1 << 4))			{				trigInterrupt(IRQ_LCDC);			}			if (reg_stat & (1 << 5))			{				trigInterrupt(IRQ_LCDC);
 			}
 		}

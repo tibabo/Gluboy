@@ -3,6 +3,7 @@
 #include "glouboy.h"
 #include "io.h"
 #include "video.h"
+#include "audio.h"
 #include "timer.h"
 #include "cpu.h"
 
@@ -127,6 +128,24 @@ int writeIO(unsigned short registerAddr, int value)
 	{
 		value = videoWrite(registerAddr, value);
 	}
+
+	if (registerAddr == NR14)
+	{
+		updateAudioChannel(0, value);
+	}
+	if (registerAddr == NR24)
+	{
+		updateAudioChannel(1, value);
+	}
+	if (registerAddr == NR34)
+	{
+		updateAudioChannel(2, value);
+	}
+	if (registerAddr == NR44)
+	{
+		updateAudioChannel(3, value);
+	}
+
 	if (registerAddr == DIV)
 	{
 		value = timerDivWrite();
@@ -168,6 +187,23 @@ void handleJoypad()
 	{
 		newButton = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
 		newDirection = (buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11]) ^ 0x0f; // down up left right
+		float treshold = 0.3f;
+		if (axes[0] < -treshold)
+		{
+			newDirection &= 0b11111101;
+		}
+		if (axes[0] > treshold)
+		{
+			newDirection &= 0b11111110;
+		}
+		if (axes[1] < -treshold)
+		{
+			newDirection &= 0b11111011;
+		}
+		if (axes[1] > treshold)
+		{
+			newDirection &= 0b11110111;
+		}
 	//	if ((ram[IO_REGISTER | P1] & (1 << 4)) != (1 << 4))
 		{
 			if (newDirection < direction) 

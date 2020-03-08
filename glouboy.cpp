@@ -64,7 +64,7 @@ void Glouboy::init()
 
 	videoReset();
 	cpuInit();
-	audioInit()
+	audioInit();
 	breakpointPC = -1;
 	
 }
@@ -107,6 +107,7 @@ void Glouboy::execute()
 	}
 	
 	cpuUpdate();
+	audioUpdate();
 	videoUpdate();
 	handleJoypad();
 	timerUpdate();
@@ -178,7 +179,7 @@ void Glouboy::update()
 	if (run)
 	{
 		int accuTC = 0;
-		int target = 456 * 154;
+		int target = 4194304 / 60;
 		while (target > accuTC)
 		{
 			execute();
@@ -213,4 +214,5 @@ void Glouboy::update()
 
 
 	cpuImgui();
+	audioImgui();
 }

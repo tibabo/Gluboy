@@ -38,9 +38,9 @@
 #define NR43			 0x22
 #define NR44			 0x23
 
-#define NR50			 0x25
-#define NR51			 0x26
-#define NR52			 0x27
+#define NR50			 0x24
+#define NR51			 0x25
+#define NR52			 0x26
 
 #define Wave_Pattern_RAM 0x30
 

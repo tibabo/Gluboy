@@ -72,19 +72,23 @@ void audioInit()
 void playBuffer()
 {
 	ALCenum error;
+	ALint queuedBuffer;
+	alGetSourcei(source, AL_BUFFERS_QUEUED, &queuedBuffer);
+	if (queuedBuffer == NB_BUFFER)
+	{
+		printf("overlapping buffer\n");
+		BufferPosition = 0;
+		return;
+	}
 
 	alBufferData(FBufferID[CurrentBuffer], AL_FORMAT_STEREO16, &buffers[CurrentBuffer][0], BufferPosition * 2, FREQUENCY);
 	alSourceQueueBuffers(source, 1, &FBufferID[CurrentBuffer]);
 	error = alGetError();
 	ALint source_state;
 	alGetSourcei(source, AL_SOURCE_STATE, &source_state);
-	ALint queuedBuffer;
-	alGetSourcei(source, AL_BUFFERS_QUEUED, &queuedBuffer);
-	// check for errors
-	if (queuedBuffer == NB_BUFFER)
-	{
-		printf("overlapping buffer\n");
-	}
+
+
+
 	if(source_state != AL_PLAYING)
 	{
 		printf("not playing\n");

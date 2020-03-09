@@ -75,7 +75,7 @@ void videoImguiWindow()
 	bool Open = true;
 	if (ImGui::Begin("Video", &Open, ImGuiWindowFlags_NoScrollbar))
 	{
-		ImGui::Image((ImTextureID)(intptr_t)screenTexture, ImVec2(SCREEN_W*2, SCREEN_H*2));
+		ImGui::Image((ImTextureID)(intptr_t)screenTexture, ImVec2(SCREEN_W*3, SCREEN_H*3));
 		static bool show = false;
 		ImGui::Checkbox("show full framebuffer", &show);
 		if(show) ImGui::Image((ImTextureID)(intptr_t)g_backgroundTexture, ImVec2(256, 256));
@@ -451,14 +451,18 @@ void videoUpdate()
 
 		if (stateMode == 2)
 		{
-			paintBackground(newLY);
- 			paintWindow(newLY);
- 			paintSprites(newLY);
+
 
 			if (reg_stat & (1 << 5))
 			{
 				trigInterrupt(IRQ_LCDC);
 			}		}
+		if (stateMode == 3)
+		{
+			paintBackground(newLY);
+			paintWindow(newLY);
+			paintSprites(newLY);
+		}
 	}
 
 	// will handle ligne 153 special LY timing later

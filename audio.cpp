@@ -150,21 +150,20 @@ struct Envelope
 Envelope envelopes[4];
 unsigned short LFSR = 0xffff;
 bool sevenStage = false;
+int noisePeriode = 0;
 
-int reloadNoiseTimer()
+void audioReloadNoiseTimer(unsigned char value)
 {
-	int ret = 0;
+	noisePeriode = 0;
 
-	int clockDivider = ram[IO_REGISTER | NR43] & 0x07;
+	int clockDivider = value & 0x07;
 	if (clockDivider)
-		ret = 8 * clockDivider;
+		noisePeriode = 8 * clockDivider;
 	else
-		ret = 4;
-	sevenStage = (ram[IO_REGISTER | NR43] & 0x08) > 0;
-	int prescaler = (ram[IO_REGISTER | NR43] & 0xf0) >> 4;
-	ret *= 2 << prescaler;
-
-	return ret;
+		noisePeriode = 4;
+	sevenStage = (value & 0x08) > 0;
+	int prescaler = (value & 0xf0) >> 4;
+	noisePeriode *= 2 << prescaler;
 }
 
 void shiftLFSR()
@@ -235,7 +234,7 @@ void updateAudioTimers(char clock)
 		{
 			if (i == 3)
 			{
-				channelTimer[i] += reloadNoiseTimer();
+				channelTimer[i] += noisePeriode;
 				shiftLFSR();
 			}
 			else if (i == 2)
@@ -415,14 +414,15 @@ int mixTerminal(char terminal)
 
 void audioUpdate()
 {
-	updateAudioTimers(TC);
-
 	frameSequencerAccu += TC;
 	if (frameSequencerAccu >= 8192)
 	{
 		frameSequencerAccu -= 8192;
 		updateFrameSequencer();
 	}
+
+	updateAudioTimers(TC);
+
 
 	audioAccu += TC;
 	int nbSampletoPlay = audioAccu *  FREQUENCY / GAMEBOY_FREQ;
@@ -501,7 +501,7 @@ void updateAudioChannel(char channel, unsigned char value)
 			length[channel] = ram[IO_REGISTER | register1[channel]] & 0x3F;
 			setEnvelope(channel);
 			LFSR = 0xffff;
-			channelTimer[3] = reloadNoiseTimer();
+			channelTimer[3] = noisePeriode;
 		}
 	}
 }

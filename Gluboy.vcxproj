@@ -197,15 +197,6 @@
     <ClCompile Include="imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui_impl_opengl2.cpp" />
     <ClCompile Include="io.cpp" />
-    <ClCompile Include="libs\EASTL\source\allocator_eastl.cpp" />
-    <ClCompile Include="libs\EASTL\source\assert.cpp" />
-    <ClCompile Include="libs\EASTL\source\fixed_pool.cpp" />
-    <ClCompile Include="libs\EASTL\source\hashtable.cpp" />
-    <ClCompile Include="libs\EASTL\source\intrusive_list.cpp" />
-    <ClCompile Include="libs\EASTL\source\numeric_limits.cpp" />
-    <ClCompile Include="libs\EASTL\source\red_black_tree.cpp" />
-    <ClCompile Include="libs\EASTL\source\string.cpp" />
-    <ClCompile Include="libs\EASTL\source\thread_support.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="video.cpp" />

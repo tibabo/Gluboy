@@ -129,6 +129,10 @@ int writeIO(unsigned short registerAddr, int value)
 		value = videoWrite(registerAddr, value);
 	}
 
+	if (registerAddr == NR10)
+	{
+		audioUpdateSweepValue(value);
+	}
 	if (registerAddr == NR14)
 	{
 		updateAudioChannel(0, value);

@@ -30,7 +30,7 @@ long romSize;
 int breakpointPC;
 int breakpointOpcode;
 
-
+Audio * audio;
 
 void Glouboy::init()
 {
@@ -42,8 +42,8 @@ void Glouboy::init()
 
 	char bundle_path[BUF_SIZE];
 	//GetRessourceBundlePath(bundle_path, BUF_SIZE);
-//	sprintf(bundle_path, "%s", "r-type.gb");
 	sprintf(bundle_path, "%s", "zelda.gb");
+	//sprintf(bundle_path, "%s", "mario.gb");
 
 	FILE * f = ImFileOpen(bundle_path, "rb");
 	fseek(f, 0, SEEK_END);
@@ -64,7 +64,10 @@ void Glouboy::init()
 
 	videoReset();
 	cpuInit();
-	audioInit();
+
+	audio = new Audio;
+	audio->init();
+
 	breakpointPC = -1;
 	
 }
@@ -107,7 +110,7 @@ void Glouboy::execute()
 	}
 	
 	cpuUpdate();
-	audioUpdate();
+	audio->update();
 	videoUpdate();
 	handleJoypad();
 	timerUpdate();
@@ -214,5 +217,5 @@ void Glouboy::update()
 
 
 	cpuImgui();
-	audioImgui();
+	audio->imgui();
 }

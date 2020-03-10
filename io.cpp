@@ -132,29 +132,29 @@ int writeIO(unsigned short registerAddr, int value)
 
 	if (registerAddr == NR10)
 	{
-		audioUpdateSweepValue(value);
+		audio->sweep.updateValue(value);
 	}
 	if (registerAddr == NR14)
 	{
-		updateAudioChannel(0, value);
+		audio->updateChannel(0, value);
 	}
 	if (registerAddr == NR24)
 	{
-		updateAudioChannel(1, value);
+		audio->updateChannel(1, value);
 	}
 	if (registerAddr == NR34)
 	{
-		updateAudioChannel(2, value);
+		audio->updateChannel(2, value);
 	}
 
 	if (registerAddr == NR43)
 	{
-		audioReloadNoiseTimer(value);
+		audio->noise.reloadTimer(value);
 	}
 
 	if (registerAddr == NR44)
 	{
-		updateAudioChannel(3, value);
+		audio->updateChannel(3, value);
 	}
 
 	if (registerAddr == DIV)

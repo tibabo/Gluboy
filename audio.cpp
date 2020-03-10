@@ -4,6 +4,7 @@
 #include "io.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "audio.h"
 
 ALCdevice *device;
 
@@ -20,10 +21,23 @@ int BufferPosition = 0;
 short buffers[NB_BUFFER][NB_SAMPLE_PER_FRAME * NB_CHANNEL];
 ALuint source;
 ALuint FBufferID[NB_BUFFER];
+unsigned char waveForm[4] = { 0b00000001, 0b10000001, 0b10000111, 0b01111110 };
 
-void audioInit()
+char register1[] = { NR11, NR21, NR31, NR41 };
+char register2[] = { NR12, NR22, NR32, NR42 };
+char register3[] = { NR13, NR23, NR33, NR43 };
+char register4[] = { NR14, NR24, NR34, NR44 };
+
+
+#define GAMEBOY_FREQ 4194304
+
+#define NB_GB_CHANNEL 4
+
+
+void Audio::init()
 {
-	device = alcOpenDevice(nullptr);
+	if(!device) device = alcOpenDevice(nullptr);
+	else return;
 
 	if (!device)
 		return;
@@ -124,49 +138,22 @@ void checkProcessedBuffer()
 }
 
 
-#define GAMEBOY_FREQ 4194304
-int audioAccu = 0;
-int frameSequencerAccu = 0;
-#define NB_GB_CHANNEL 4
-signed int length[NB_GB_CHANNEL];
-signed int channelTimer[NB_GB_CHANNEL];
 
-char dutyCycleCounter[3] = { 0, 0, 0 };
-unsigned char waveForm[4] = { 0b00000001, 0b10000001, 0b10000111, 0b01111110 };
-
-char register1[] = { NR11, NR21, NR31, NR41 };
-char register2[] = { NR12, NR22, NR32, NR42 };
-char register3[] = { NR13, NR23, NR33, NR43 };
-char register4[] = { NR14, NR24, NR34, NR44 };
-
-struct Envelope
+void NoiseChannel::reloadTimer(unsigned char value)
 {
-	int volume;
-	bool up;
-	int timer;
-	int periode;
-};
-
-Envelope envelopes[4];
-unsigned short LFSR = 0xffff;
-bool sevenStage = false;
-int noisePeriode = 0;
-
-void audioReloadNoiseTimer(unsigned char value)
-{
-	noisePeriode = 0;
+	periode = 0;
 
 	int clockDivider = value & 0x07;
 	if (clockDivider)
-		noisePeriode = 8 * clockDivider;
+		periode = 8 * clockDivider;
 	else
-		noisePeriode = 4;
+		periode = 4;
 	sevenStage = (value & 0x08) > 0;
 	int prescaler = (value & 0xf0) >> 4;
-	noisePeriode *= 2 << prescaler;
+	periode *= 2 << prescaler;
 }
 
-void shiftLFSR()
+void NoiseChannel::shiftLFSR()
 {
 	LFSR = LFSR >> 1;
 	if (sevenStage)
@@ -182,93 +169,87 @@ void shiftLFSR()
 }
 
 
-char sweepPeriod = 0;
-char sweepTimer = 0;
-int shadowFreq = 0;
-int sweepShift = 0;
-int way = 0;
 
-bool sweepOverflow = false;
-
-void updateSweep()
+void Audio::updateSweep()
 {
-	if (sweepPeriod && sweepShift && sweepTimer && !--sweepTimer)
+	if (sweep.period && sweep.shift && sweep.timer && !--sweep.timer)
 	{
-		sweepTimer = sweepPeriod;
+		sweep.timer = sweep.period;
 
-		int newPeriode = shadowFreq + way * (shadowFreq >> (sweepShift));
+		int newPeriode = sweep.shadowFreq + sweep.way * (sweep.shadowFreq >> (sweep.shift));
 		if (newPeriode < 0)
 		{
-			sweepTimer = 0;
+			sweep.timer = 0;
 		}
 		if (newPeriode > 0)
 		{
-			shadowFreq = newPeriode;
+			sweep.shadowFreq = newPeriode;
 		}
 		if (newPeriode >= 2048)
 		{
-			sweepTimer = 0;
-			sweepOverflow = true;
+			sweep.timer = 0;
+			sweep.overflow = true;
 			ram[IO_REGISTER | NR52] &= ~(1);
 		}
 	}
 }
 
-int computeChannelPeriode(int channel)
+int Audio::computeChannelPeriode(int i)
 {
 	int multiplier;
-	if (channel == 2) multiplier = 2;
+	if (i == 2) multiplier = 2;
 	else multiplier = 4;
 
-	return (2048 - (ram[IO_REGISTER | register3[channel]] | ((ram[IO_REGISTER | register4[channel]] & 0x07) << 8))) * multiplier;
+	return (2048 - (ram[IO_REGISTER | register3[i]] | ((ram[IO_REGISTER | register4[i]] & 0x07) << 8))) * multiplier;
 }
 
-int SampleIndex = 0;
 
-void updateAudioTimers(char clock)
+void Audio::updateTimers(char clock)
 {
 	for (int i = 0; i < NB_GB_CHANNEL; i++)
 	{
-		channelTimer[i] -= clock;
-		if (channelTimer[i] <= 0)
+		signed int & timer = channel[i].timer;
+		timer -= clock;
+		if (timer <= 0)
 		{
 			if (i == 3)
 			{
-				channelTimer[i] += noisePeriode;
-				shiftLFSR();
+				timer += noise.periode;
+				noise.shiftLFSR();
 			}
 			else if (i == 2)
 			{
-				SampleIndex++;
-				channelTimer[i] += computeChannelPeriode(i);
+				sampleIndex++;
+				timer += computeChannelPeriode(i);
 			}
 			else
 			{
-				dutyCycleCounter[i]++;
-				if ((i == 0) && sweepPeriod && sweepShift)
+				channel[i].dutyCycleCounter++;
+				if ((i == 0) && sweep.period && sweep.shift)
 				{
-					channelTimer[i] += (2048 - shadowFreq)*4;
+					timer += (2048 - sweep.shadowFreq)*4;
 				}
-				else channelTimer[i] += computeChannelPeriode(i);
+				else timer += computeChannelPeriode(i);
 			}
 		}
 	}
 }
 
-void updateEnvelopes()
+void Audio::updateEnvelopes()
 {
 	for (int i = 0; i < NB_GB_CHANNEL; i++)
 	{
-		if (envelopes[i].periode)
+		Envelope & env = channel[i].envelope;
+		if (env.periode)
 		{
-			envelopes[i].timer--;
-			if (envelopes[i].timer == 0)
+			env.timer--;
+			if (env.timer == 0)
 			{
-				envelopes[i].up ? envelopes[i].volume++ : envelopes[i].volume--;
-				if (envelopes[i].volume > 15) envelopes[i].volume = 15;
-				else if (envelopes[i].volume < 0) envelopes[i].volume = 0;
+				env.up ? env.volume++ : env.volume--;
+				if (env.volume > 15) env.volume = 15;
+				else if (env.volume < 0) env.volume = 0;
 
-				envelopes[i].timer = envelopes[i].periode;
+				env.timer = env.periode;
 			}
 		}
 	}
@@ -276,38 +257,37 @@ void updateEnvelopes()
 
 
 
-void updateFrameSequencer()
+void Audio::updateFrameSequencer()
 {
-	static int step = 0;
-	switch (step)
+	switch (frameSequencerStep)
 	{
 		case 2:
 		case 6:
 			updateSweep();
 		case 0:
 		case 4:
-			for (int i = 0; i < NB_GB_CHANNEL; i++) if (length[i] > 0) length[i]--;
+			for (int i = 0; i < NB_GB_CHANNEL; i++) if (channel[i].length > 0) channel[i].length--;
 			break;
 		case 7:
 			updateEnvelopes();
 			break;
 	}
 
-	step++;
-	if (step >= 8) step = 0;
+	frameSequencerStep++;
+	if (frameSequencerStep >= 8) frameSequencerStep = 0;
 }
 
 
-char sample()
+char Audio::sample()
 {
 	if ((ram[IO_REGISTER | NR30] & 0x80) == 0) return 0; // DAC POWER	
 
-	int channel = 2;
-	bool lenghtEnable = ram[IO_REGISTER | register4[channel]] & 0x40;
-	if ((length[channel] && lenghtEnable) || !lenghtEnable)
+	int i = 2;
+	bool lenghtEnable = ram[IO_REGISTER | register4[i]] & 0x40;
+	if ((channel[i].length && lenghtEnable) || !lenghtEnable)
 	{
-		ram[IO_REGISTER | NR52] |= 1 << channel;
-		char data = ((ram[IO_REGISTER | Wave_Pattern_RAM + ((SampleIndex%32) >> 1)]) >> (4* (SampleIndex%2))) & 0x0f;
+		ram[IO_REGISTER | NR52] |= 1 << i;
+		char data = ((ram[IO_REGISTER | Wave_Pattern_RAM + ((sampleIndex%32) >> 1)]) >> (4* (sampleIndex%2))) & 0x0f;
 		switch((ram[IO_REGISTER | NR32] >> 5) & 0x3)
 		{
 		case 0: 
@@ -323,18 +303,18 @@ char sample()
 
 		return data - 8;
 	}
-	ram[IO_REGISTER | NR52] &= ~(1 << channel);
+	ram[IO_REGISTER | NR52] &= ~(1 << i);
 	return 0;
 }
 
-char wave(char channel)
+char Audio::wave(char i)
 {
-	bool lenghtEnable = ram[IO_REGISTER | register4[channel]] & 0x40;
-	if ((length[channel] && lenghtEnable) || !lenghtEnable)
+	bool lenghtEnable = ram[IO_REGISTER | register4[i]] & 0x40;
+	if ((channel[i].length && lenghtEnable) || !lenghtEnable)
 	{
-		ram[IO_REGISTER | NR52] |= 1 << channel;
-		char duty = ram[IO_REGISTER | register1[channel]] >> 6;
-		if ((waveForm[duty] >> (dutyCycleCounter[channel] & 0x07)) & 1)
+		ram[IO_REGISTER | NR52] |= 1 << i;
+		char duty = ram[IO_REGISTER | register1[i]] >> 6;
+		if ((waveForm[duty] >> (channel[i].dutyCycleCounter & 0x07)) & 1)
 		{
 			return 1;
 		}
@@ -343,19 +323,19 @@ char wave(char channel)
 			return -1;
 		}
 	}
-	ram[IO_REGISTER | NR52] &= ~(1 << channel);
+	ram[IO_REGISTER | NR52] &= ~(1 << i);
 	return 0;
 }
 
 
-char noise()
+char Audio::noiseSample()
 {
-	int channel = 3;
-	bool lenghtEnable = ram[IO_REGISTER | register4[channel]] & 0x40;
-	if ((length[channel] && lenghtEnable) || !lenghtEnable)
+	int i = 3;
+	bool lenghtEnable = ram[IO_REGISTER | register4[i]] & 0x40;
+	if ((channel[i].length && lenghtEnable) || !lenghtEnable)
 	{
 		ram[IO_REGISTER | NR52] |= 0x08;
-		return (LFSR & 1) ? -1 : 1;
+		return (noise.LFSR & 1) ? -1 : 1;
 	}
 	ram[IO_REGISTER | NR52] &= 0xf7;
 	return 0;
@@ -366,7 +346,7 @@ bool optionSquare1 = true;
 bool optionSample  = true;
 bool noiseChannel  = true;
 
-void audioImgui()
+void Audio::imgui()
 {
 	bool Open = true;
 	if (ImGui::Begin("Audio", &Open, ImGuiWindowFlags_NoScrollbar))
@@ -380,21 +360,21 @@ void audioImgui()
 	ImGui::End();
 }
 
-int mixTerminal(char terminal)
+int Audio::mixTerminal(char terminal)
 {
 	int output = 0;
 	char channelControl = (ram[IO_REGISTER | NR50] >> (terminal * 4)) & 0x0f;
 
 	int volume = channelControl & 0x07;
 	char enable = (ram[IO_REGISTER | NR51] >> (terminal * 4)) & 0x0f;
-	if ((enable & 0x01) && !sweepOverflow && optionSquare0)
+	if ((enable & 0x01) && !sweep.overflow && optionSquare0)
 	{
-		output += envelopes[0].volume * wave(0);
+		output += channel[0].envelope.volume * wave(0);
 	}
 
 	if ((enable & 0x02) && optionSquare1)
 	{
-		output += envelopes[1].volume * wave(1);
+		output += channel[1].envelope.volume * wave(1);
 	}
 
 	if ((enable & 0x04) && optionSample)
@@ -404,7 +384,7 @@ int mixTerminal(char terminal)
 
 	if ((enable & 0x08) && noiseChannel)
 	{
-		output += envelopes[3].volume * noise();
+		output += channel[3].envelope.volume * noiseSample();
 	}
 
 	output *= volume + 1;
@@ -412,7 +392,7 @@ int mixTerminal(char terminal)
 	return output;
 }
 
-void audioUpdate()
+void Audio::update()
 {
 	frameSequencerAccu += TC;
 	if (frameSequencerAccu >= 8192)
@@ -421,7 +401,7 @@ void audioUpdate()
 		updateFrameSequencer();
 	}
 
-	updateAudioTimers(TC);
+	updateTimers(TC);
 
 
 	audioAccu += TC;
@@ -453,55 +433,54 @@ void audioUpdate()
 }
 
 
-void setEnvelope(int channel)
+void Audio::setEnvelope(int i)
 {
-	envelopes[channel].volume = ram[IO_REGISTER + register2[channel]] >> 4;
-	envelopes[channel].up     =(ram[IO_REGISTER + register2[channel]] >> 3) & 1;
-	envelopes[channel].timer  = ram[IO_REGISTER + register2[channel]] & 0x07;
-	envelopes[channel].periode = envelopes[channel].timer;
+	channel[i].envelope.volume = ram[IO_REGISTER + register2[i]] >> 4;
+	channel[i].envelope.up     =(ram[IO_REGISTER + register2[i]] >> 3) & 1;
+	channel[i].envelope.timer  = ram[IO_REGISTER + register2[i]] & 0x07;
+	channel[i].envelope.periode = channel[i].envelope.timer;
 }
 
-void audioUpdateSweepValue(unsigned char value)
+void SweepChannel::updateValue(unsigned char value)
 {
-	sweepPeriod = (value & 0x70) >> 4;
-	sweepShift = value & 7;
+	period = (value & 0x70) >> 4;
+	shift = value & 7;
 	way = (value & 8) ? -1 : 1;
 }
 
-void updateAudioChannel(char channel, unsigned char value)
+void Audio::updateChannel(char i, unsigned char value)
 {
-	ram[IO_REGISTER | register4[channel]] = value;
+	ram[IO_REGISTER | register4[i]] = value;
 
 	if (value & 0x80)
 	{
-		if (channel == 0)
+		if (i == 0)
 		{
-			length[channel] = ram[IO_REGISTER | register1[channel]] & 0x3F;
-			shadowFreq = ram[IO_REGISTER | register3[channel]] | ((value & 0x07) << 8);
-			sweepOverflow = false;
-			channelTimer[channel] = computeChannelPeriode(channel);
-			sweepTimer = sweepPeriod;
-			//updateSweep();
-			setEnvelope(channel);
+			channel[i].length = ram[IO_REGISTER | register1[i]] & 0x3F;
+			sweep.shadowFreq = ram[IO_REGISTER | register3[i]] | ((value & 0x07) << 8);
+			sweep.overflow = false;
+			channel[i].timer = computeChannelPeriode(i);
+			sweep.timer = sweep.period;
+			setEnvelope(i);
 		}
-		else if (channel == 1)
+		else if (i == 1)
 		{
-			length[channel] = ram[IO_REGISTER | register1[channel]] & 0x3F;
-			channelTimer[channel] = computeChannelPeriode(channel);
-			setEnvelope(channel);
+			channel[i].length = ram[IO_REGISTER | register1[i]] & 0x3F;
+			channel[i].timer = computeChannelPeriode(i);
+			setEnvelope(i);
 		}
-		else if (channel == 2)
+		else if (i == 2)
 		{
-			length[channel] = ram[IO_REGISTER | register1[channel]];
-			channelTimer[channel] = computeChannelPeriode(channel);
-			SampleIndex = 0;
+			channel[i].length = ram[IO_REGISTER | register1[i]];
+			channel[i].timer = computeChannelPeriode(i);
+			sampleIndex = 0;
 		}
-		else if (channel == 3)
+		else if (i == 3)
 		{
-			length[channel] = ram[IO_REGISTER | register1[channel]] & 0x3F;
-			setEnvelope(channel);
-			LFSR = 0xffff;
-			channelTimer[3] = noisePeriode;
+			channel[i].length = ram[IO_REGISTER | register1[i]] & 0x3F;
+			setEnvelope(i);
+			noise.LFSR = 0xffff;
+			channel[i].timer = noise.periode;
 		}
 	}
 }

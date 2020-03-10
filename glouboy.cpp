@@ -1,9 +1,9 @@
 //
-//  glouboy.cpp
-//  imguiex-osx
+//  gluboy.cpp
+//  
 //
-//  Created by pinkasfeld on 30/11/2017.
-//  Copyright © 2017 Joel Davis. All rights reserved.
+//  Created by joseph pinkasfeld 
+//  
 //
 
 #include "glouboy.h"
@@ -30,7 +30,24 @@ long romSize;
 int breakpointPC;
 int breakpointOpcode;
 
+struct state
+{
+	Audio audio;
+	CPU   cpu;
+	Video video;
+	Timer timer;
+};
+
+#define TOTAL_STATES (60 * 10)
+state states[TOTAL_STATES];
+int firstState = -1;
+int lastState = 0;
+
+
 Audio * audio;
+CPU *   cpu;
+Video * video;
+Timer * timer;
 
 void Glouboy::init()
 {
@@ -42,7 +59,7 @@ void Glouboy::init()
 
 	char bundle_path[BUF_SIZE];
 	//GetRessourceBundlePath(bundle_path, BUF_SIZE);
-	sprintf(bundle_path, "%s", "zelda.gb");
+	sprintf(bundle_path, "%s", "r-type.gb");
 	//sprintf(bundle_path, "%s", "mario.gb");
 
 	FILE * f = ImFileOpen(bundle_path, "rb");
@@ -53,17 +70,22 @@ void Glouboy::init()
 	rom = (unsigned char*)malloc(romSize + 1);
 	fread(rom, 1, romSize, f);
 	((char*)rom)[romSize] = 0;
+	
+	video = new Video;
+	video->createTextures();
 
-	videoCreateTextures();
+	timer = new Timer;
 
+	cpu = new CPU;
 
 	// init ram with rom
 	assert(romSize >= 0x8000);
+	memset(ram, 0, 0x10000);
 	memcpy(ram, rom, 0x8000);
 
 
-	videoReset();
-	cpuInit();
+	video->reset();
+	cpu->init();
 
 	audio = new Audio;
 	audio->init();
@@ -81,13 +103,13 @@ void Glouboy::execute()
 	{
 		if (loggingNewData)
 		{
-			fprintf(f, "%04x\n", PC);
+			fprintf(f, "%04x\n", cpu->PC);
 		}
 		else
 		{
 			unsigned int otherPC;
 			fscanf(f, "%04x\n", &otherPC);
-			if (PC != otherPC)
+			if (cpu->PC != otherPC)
 			{
 				int i = 0;
 				i++;
@@ -95,13 +117,13 @@ void Glouboy::execute()
 		}
 	}
 
-	if (handleInterrupts())
+	if (cpu->handleInterrupts())
 	{
 		TC += 20;
 	}
-	else if (haltMode == false)
+	else if (cpu->haltMode == false)
 	{
-		unsigned char instruction = ram[PC];
+		unsigned char instruction = ram[cpu->PC];
 		opcode[instruction].funct();
 	}
 	else
@@ -109,27 +131,19 @@ void Glouboy::execute()
 		TC += 4;
 	}
 	
-	cpuUpdate();
+	cpu->update();
 	audio->update();
-	videoUpdate();
-	handleJoypad();
-	timerUpdate();
+	video->update();
+	timer->update();
 }
 
-void wakeHalteMode()
-{
-	if (haltMode)
-	{
-		haltMode = false;
-		TC += 4;
-	}
-}
+
 
 
 void Glouboy::update()
 {
 	mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram, 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
-	videoImguiWindow();
+	video->imgui();
 																			  
 //    unsigned char instruction = rom[PC];
 	static bool hexa = true;
@@ -181,12 +195,35 @@ void Glouboy::update()
 
 	if (run)
 	{
-		int accuTC = 0;
-		int target = 4194304 / 60;
-		while (target > accuTC)
+		if (handleJoypad() && (firstState != -1))
 		{
-			execute();
-			accuTC += TC;
+			if (lastState != firstState)
+			{
+				lastState--;
+				if (lastState < 0) lastState += TOTAL_STATES;
+				*audio = states[lastState].audio;
+				*cpu = states[lastState].cpu;
+				*video = states[lastState].video;
+				*timer = states[lastState].timer;
+				video->updateTextures();
+			}
+		}
+		else
+		{
+			int accuTC = 0;
+			int target = 4194304 / 60;
+			while (target > accuTC)
+			{
+				execute();
+				accuTC += TC;
+			}
+			states[lastState++] = { *audio, *cpu, *video, *timer };
+			lastState = lastState % TOTAL_STATES;
+			if (firstState == -1) firstState = 0;
+			if (lastState == firstState)
+			{
+				firstState = (lastState + 1) % TOTAL_STATES;
+			}
 		}
 	}
 
@@ -196,7 +233,7 @@ void Glouboy::update()
 		{
 			do {
 				execute();
-			} while (PC != breakpointPC);
+			} while (cpu->PC != breakpointPC);
 		}
 	}
 	ImGui::SameLine();
@@ -208,7 +245,7 @@ void Glouboy::update()
 			int nextOp = -1;
 			do {
 				execute();
-				nextOp = ram[PC] << 16 | ram[PC + 1] << 8 | ram[PC + 2];
+				nextOp = ram[cpu->PC] << 16 | ram[cpu->PC + 1] << 8 | ram[cpu->PC + 2];
 			} while (breakpointOpcode != nextOp);
 		}
 	}
@@ -216,6 +253,6 @@ void Glouboy::update()
 	ImGui::InputInt("breakpoint oppcode", &breakpointOpcode, 1, 0, ImGuiInputTextFlags_CharsHexadecimal);
 
 
-	cpuImgui();
+	cpu->imgui();
 	audio->imgui();
 }

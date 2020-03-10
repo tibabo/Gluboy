@@ -4,10 +4,10 @@
 
 struct Envelope
 {
-	int volume;
-	bool up;
-	int timer;
-	int periode;
+	int volume = 0;
+	bool up = 0;
+	int timer = 0;
+	int periode = 0;
 };
 
 struct Channel

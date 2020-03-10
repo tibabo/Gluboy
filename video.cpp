@@ -1,5 +1,5 @@
 #include "imgui.h"
-
+#include "video.h"
 #include "glouboy.h"
 #include "io.h"
 #include "cpu.h"
@@ -42,35 +42,20 @@ struct oamBlock
 	} flags;
 };
 
-#define OAM_ADDR 0xFE00
 
-#define SPRITE_INFO_SIZE 4
-#define SPRITE_INFO_COUNT 40
-#define NB_LINE_OF_TILE 32
-#define NB_COL_OF_TILE 32
-#define FULL_LINE_CYCLE 456
-#define VISIBLE_LINE 144
-#define TILE_SIZE_IN_BYTES 16
-#define NB_TILE (NB_LINE_OF_TILE * NB_COL_OF_TILE)
 int background[256 * 256];
-#define SCREEN_W 160 
-#define SCREEN_H 144
-int screen[SCREEN_W * SCREEN_H];
-static GLuint g_backgroundTexture = 0;
-static GLuint screenTexture = 0;
 
-int totalFrameCycle = 0;
-int currentLineCycle = 0;
-int stateMode = 0;
+
+GLuint g_backgroundTexture = 0;
+GLuint screenTexture = 0;
 
 int defaultPalette[4] = { 0xffd3f6ff,0xff75a8f9,0xff6f6beb,0xff583f7c};
-int backgroundPalette[4];
-int spritePalette0[4];
-int spritePalette1[4];
+
+
 
 #define reg_stat ram[IO_REGISTER | 0x41]
 
-void videoImguiWindow()
+void Video::imgui()
 {
 	bool Open = true;
 	if (ImGui::Begin("Video", &Open, ImGuiWindowFlags_NoScrollbar))
@@ -84,7 +69,7 @@ void videoImguiWindow()
 	ImGui::End();
 }	
 
-void videoReset()
+void Video::reset()
 {
 	//reset palette
 	for (int i = 0; i < 4; i++)
@@ -137,13 +122,13 @@ GLuint  videoCreateTexture(int width, int height, int * data)
 }
 
 
-void videoCreateTextures()
+void Video::createTextures()
 {
 	g_backgroundTexture = videoCreateTexture(256, 256, background);
 	screenTexture = videoCreateTexture(SCREEN_W, SCREEN_H, screen);
 }
 
-void paintSprites(int line)
+void Video::paintSprites(int line)
 {
 	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
 		return;
@@ -153,20 +138,20 @@ void paintSprites(int line)
 		nbLinePerSprite = 16;
 
 	struct oamBlock * spriteTab = (struct oamBlock *)(ram + OAM_ADDR);
-	static char indexList[SPRITE_INFO_COUNT];
+
 	if (line == 0)
 	{
 		// bubble sort sprite by x	
-		for (int i = 0; i < SPRITE_INFO_COUNT; i++) indexList[i] = i;
+		for (int i = 0; i < SPRITE_INFO_COUNT; i++) spriteSortedList[i] = i;
 		for (int c = 0; c < SPRITE_INFO_COUNT - 1; c++)
 		{
 			for (int d = 0; d < SPRITE_INFO_COUNT - c - 1; d++)
 			{
-				if (spriteTab[indexList[d]].x < spriteTab[indexList[d + 1]].x)
+				if (spriteTab[spriteSortedList[d]].x < spriteTab[spriteSortedList[d + 1]].x)
 				{
-					int swap = indexList[d];
-					indexList[d] = indexList[d + 1];
-					indexList[d + 1] = swap;
+					int swap = spriteSortedList[d];
+					spriteSortedList[d] = spriteSortedList[d + 1];
+					spriteSortedList[d + 1] = swap;
 				}
 			}
 		}
@@ -174,7 +159,7 @@ void paintSprites(int line)
 
 	for (int i = 0; i < SPRITE_INFO_COUNT; i++)
 	{
-		struct oamBlock * sprite = (struct oamBlock *)(ram + OAM_ADDR + indexList[i] * SPRITE_INFO_SIZE);
+		struct oamBlock * sprite = (struct oamBlock *)(ram + OAM_ADDR + spriteSortedList[i] * SPRITE_INFO_SIZE);
 		
 		int * palette = sprite->flags.palette ? spritePalette1 : spritePalette0;
 		int tileDataAddr = 0x8000;
@@ -218,7 +203,7 @@ void paintSprites(int line)
 	}
 }
 
-void paintFullBackground()
+void Video::paintFullBackground()
 {
 	if ((ram[IO_REGISTER | LCDC] & 0x02) == 0)
 		return;
@@ -248,7 +233,7 @@ void paintFullBackground()
 	}
 }
 
-void paintBackground(unsigned char line)
+void Video::paintBackground(unsigned char line)
 {
 	if ((ram[IO_REGISTER | LCDC] & 0x01) == 0)
 		return;
@@ -288,7 +273,7 @@ void paintBackground(unsigned char line)
 	}
 }
 
-void paintWindow(int line)
+void Video::paintWindow(unsigned int line)
 {
 	if ((ram[IO_REGISTER | LCDC] & 0x01) == 0)
 		return;
@@ -333,7 +318,7 @@ void paintWindow(int line)
 	}
 }
 
-void renderScreen()
+void Video::renderScreen()
 {
 	int y = 0;
 	int x = 0;
@@ -353,13 +338,13 @@ void renderScreen()
 	}
 }
 
-void videoUpdateTextures()
+void Video::updateTextures()
 {
 	videoUpdateTexture(g_backgroundTexture, 256, 256, background);
 	videoUpdateTexture(screenTexture, SCREEN_W, SCREEN_H, screen);
 }
 
-void videoUpdate()
+void Video::update()
 {
 	if ((ram[IO_REGISTER | LCDC] & 0x80) == 0) // LCD POWER
 	{
@@ -379,7 +364,7 @@ void videoUpdate()
 		if (totalFrameCycle < (VISIBLE_LINE * FULL_LINE_CYCLE + 4))
 		{
 			// trigger VBL interrupt
-			trigInterrupt(IRQ_V_Blank);
+			cpu->trigInterrupt(IRQ_V_Blank);
 		}
 	}
 	totalFrameCycle = newtotalFrameCycle;
@@ -394,7 +379,7 @@ void videoUpdate()
 	{
 		if (reg_stat & (1 << 6)) // LY=LYC Check Enable 
 		{
-			trigInterrupt(IRQ_LCDC);
+			cpu->trigInterrupt(IRQ_LCDC);
 		}
 	}
 	
@@ -439,14 +424,14 @@ void videoUpdate()
 		if (stateMode == 1)
 		{
 			paintFullBackground();
-			videoUpdateTextures(); 
-			if (reg_stat & (1 << 4))			{				trigInterrupt(IRQ_LCDC);			}			if (reg_stat & (1 << 5))			{				trigInterrupt(IRQ_LCDC);
+			updateTextures(); 
+			if (reg_stat & (1 << 4))			{				cpu->trigInterrupt(IRQ_LCDC);			}			if (reg_stat & (1 << 5))			{				cpu->trigInterrupt(IRQ_LCDC);
 			}
 		}
 
 		if ((stateMode == 0) && (reg_stat & (1 << 3)))
 		{
-			trigInterrupt(IRQ_LCDC);
+			cpu->trigInterrupt(IRQ_LCDC);
 		}
 
 		if (stateMode == 2)
@@ -455,7 +440,7 @@ void videoUpdate()
 
 			if (reg_stat & (1 << 5))
 			{
-				trigInterrupt(IRQ_LCDC);
+				cpu->trigInterrupt(IRQ_LCDC);
 			}		}
 		if (stateMode == 3)
 		{
@@ -481,7 +466,7 @@ void writePalette(int *palette, int value)
 	palette[3] = defaultPalette[index];
 }
 
-int videoWrite(int registerAddr, int value)
+int Video::write(int registerAddr, int value)
 {
 	if (registerAddr == 0x41) // STAT
 	{

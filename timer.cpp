@@ -1,4 +1,5 @@
 #include "glouboy.h"
+#include "timer.h"
 #include "io.h"
 #include "cpu.h"
 #define tac ram[IO_REGISTER | TAC]
@@ -6,18 +7,13 @@
 #define tma ram[IO_REGISTER | TMA]
 #define div ram[IO_REGISTER | DIV]
 
-unsigned short internalDIV = 0xABCC;
-unsigned short nextUpdate = 0xABCC;
-
-int accu = 0;
-
-int timerDivWrite()
+int Timer::divWrite()
 {
 	internalDIV = 0;
 	return 0;
 }
 
-void timerUpdate()
+void Timer::update()
 {
 	internalDIV += TC;
 	div = internalDIV >> 8;
@@ -53,7 +49,7 @@ void timerUpdate()
 	if (tempTima > 0xff)
 	{
 		tima = tma;
-		trigInterrupt(IRQ_TIMER);
+		cpu->trigInterrupt(IRQ_TIMER);
 	}
 	else
 	{

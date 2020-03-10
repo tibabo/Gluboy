@@ -1,9 +1,12 @@
 #pragma once
 
+struct Timer
+{
+	unsigned short internalDIV = 0xABCC;
+	int accu = 0;
+public:
+	void update();
+	int  divWrite();
+};
 
-void timerUpdate();
-int timerDivWrite();
-void timerUpdateIncrementTreshold();
-
-
-extern int accu;
+extern Timer * timer;

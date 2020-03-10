@@ -7,70 +7,6 @@
 #include "timer.h"
 #include "cpu.h"
 
-#define interruptEnable ram[IO_REGISTER | IE]
-#define interruptFlags ram[IO_REGISTER | IF]
-
-bool InterruptMasterFlag = true;
-
-void disableInterrupt()
-{
-	InterruptMasterFlag = 0;
-}
-
-int shouldRiseInterruptMasterFlag = 0;
-
-void delayedEnableInterrupt()
-{
-	shouldRiseInterruptMasterFlag = 1;
-}
-
-void enableInterrupt()
-{
-	InterruptMasterFlag = 1;
-}
-
-void trigInterrupt(int interrupt)
-{
-	interruptFlags |= interrupt;
-}
-
-bool handleInterrupt(int flag, int vector)
-{
-	if (flag & interruptEnable & interruptFlags)
-	{
-		if (InterruptMasterFlag)
-		{
-			interruptFlags ^= flag;
-			jumpToVector(vector);
-			disableInterrupt();
-			return true;
-		}
-	}
-	return false;
-}
-
-bool handleInterrupts()
-{
-	if (interruptEnable & interruptFlags)
-	{
-		wakeHalteMode();
-		if (handleInterrupt(IRQ_V_Blank, 0x40)) return true;
-		if (handleInterrupt(IRQ_LCDC, 0x48)) return true;
-		if (handleInterrupt(IRQ_TIMER, 0x50)) return true;
-		if (handleInterrupt(IRQ_SERIAL, 0x58)) return true;
-		if (handleInterrupt(IRQ_JOYPAD, 0x60)) return true;
-	}
-
-
-
-	// InterruptMasterFlag is not set immediatelly
-	if (shouldRiseInterruptMasterFlag == 1)
-	{
-		shouldRiseInterruptMasterFlag = 0;
-		InterruptMasterFlag = true;
-	}
-	return false;
-}
 
 void writeRam(unsigned short addr, int value)
 {
@@ -127,7 +63,7 @@ int writeIO(unsigned short registerAddr, int value)
 {
 	if ((registerAddr & 0x40) == 0x40) // video ctrl
 	{
-		value = videoWrite(registerAddr, value);
+		value = video->write(registerAddr, value);
 	}
 
 	if (registerAddr == NR10)
@@ -159,7 +95,7 @@ int writeIO(unsigned short registerAddr, int value)
 
 	if (registerAddr == DIV)
 	{
-		value = timerDivWrite();
+		value = timer->divWrite();
 	}
 
 	if (registerAddr == DMA)
@@ -181,21 +117,16 @@ int writeIO(unsigned short registerAddr, int value)
 	return value;
 }
 
-void handleJoypad()
+bool handleJoypad()
 {
-	static int target = 456 * 154;
-	target -= TC;
-	if (target > 0)
-	{
-		return;
-	}
-	target = 456 * 154;
-
-	int axes_count = 0, buttons_count = 0;
+	int axes_count = 0;
+	int buttons_count = 0;
 	const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axes_count);
 	const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttons_count);
 	if (buttons_count > 13)
 	{
+		if (buttons[4]) return true; // for rewind
+
 		newButton = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
 		newDirection = (buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11]) ^ 0x0f; // down up left right
 		float treshold = 0.3f;
@@ -215,21 +146,22 @@ void handleJoypad()
 		{
 			newDirection &= 0b11110111;
 		}
-	//	if ((ram[IO_REGISTER | P1] & (1 << 4)) != (1 << 4))
+
 		{
 			if (newDirection < direction) 
 			{
-				trigInterrupt(IRQ_JOYPAD);
+				cpu->trigInterrupt(IRQ_JOYPAD);
 			}
 		}
 		direction = newDirection;
-	//	if ((ram[IO_REGISTER | P1] & (1 << 5)) != (1 << 5))
+
 		{
 			if (newButton < button)
 			{
-				trigInterrupt(IRQ_JOYPAD);
+				cpu->trigInterrupt(IRQ_JOYPAD);
 			}
 		}
 		button = newButton;
 	}
+	return false;
 }

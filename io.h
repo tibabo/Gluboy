@@ -60,11 +60,9 @@
 
 #define OAM              0xfe00
 
-bool handleInterrupts();
 int  writeIO(unsigned short registerAddr, int value);
-void trigInterrupt(int interrupt);
-void disableInterrupt();
-void enableInterrupt();
-void delayedEnableInterrupt();
+
+
+
 void writeRam(unsigned short adresse, int value);
-void handleJoypad();
+bool handleJoypad();

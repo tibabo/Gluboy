@@ -110,7 +110,7 @@ void playBuffer()
 	if ((source_state != AL_PLAYING) && (queuedBuffer > 4))
 		alSourcePlay(source);
 
-	printf("add Buffer %d samples\n", BufferPosition/2);
+	//printf("add Buffer %d samples\n", BufferPosition/2);
 	error = alGetError();
 	CurrentBuffer++;
 	BufferPosition = 0;
@@ -131,7 +131,7 @@ void checkProcessedBuffer()
 		ALint queuedBuffer;
 		alGetSourcei(source, AL_BUFFERS_QUEUED, &queuedBuffer);
 		
-		printf("%d buffer in queue \n", queuedBuffer);
+		//printf("%d buffer in queue \n", queuedBuffer);
 		
 		if(queuedBuffer <= 2) playBuffer();
 	}

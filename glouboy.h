@@ -14,7 +14,7 @@
 #define imguiRegister(a) {int charRegister = a; if(ImGui::InputInt(#a,&charRegister, 0, 0, ImGuiInputTextFlags_CharsHexadecimal)){ a = charRegister;} }
 extern unsigned char * rom;
 namespace Glouboy {
-	void init();
+	void init(const char *);
 	void update();
 	void execute();
 

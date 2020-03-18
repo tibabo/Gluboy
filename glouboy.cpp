@@ -8,10 +8,11 @@
 
 #include "glouboy.h"
 #include <stdio.h>
+
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imgui_memory_editor.h"
-
+#include "nfd.h"
 #include "io.h"
 #include "video.h"
 #include "timer.h"
@@ -24,7 +25,7 @@ enum {BUF_SIZE = 1024};
 #define KEY_F3 (292)
 #define KEY_F4 (293)
 
-unsigned char * rom = 0;
+
 long romSize;
 
 int breakpointPC;
@@ -44,12 +45,13 @@ int firstState = -1;
 int lastState = 0;
 
 
-Audio * audio;
-CPU *   cpu;
-Video * video;
-Timer * timer;
+Audio * audio = nullptr;
+CPU *   cpu = nullptr;
+Video * video = nullptr;
+Timer * timer = nullptr;
+unsigned char * rom = nullptr;
 
-void Glouboy::init()
+void Glouboy::init(const char * path)
 {
 	if (rom != nullptr)
 	{
@@ -57,12 +59,7 @@ void Glouboy::init()
 		romSize = 0;
 	}
 
-	char bundle_path[BUF_SIZE];
-	//GetRessourceBundlePath(bundle_path, BUF_SIZE);
-	sprintf(bundle_path, "%s", "r-type.gb");
-	//sprintf(bundle_path, "%s", "mario.gb");
-
-	FILE * f = ImFileOpen(bundle_path, "rb");
+	FILE * f = ImFileOpen(path, "rb");
 	fseek(f, 0, SEEK_END);
 	romSize = ftell(f);
 	rewind(f);
@@ -70,12 +67,16 @@ void Glouboy::init()
 	rom = (unsigned char*)malloc(romSize + 1);
 	fread(rom, 1, romSize, f);
 	((char*)rom)[romSize] = 0;
-	
+	fclose(f);
+
+	if (video) delete video;
 	video = new Video;
 	video->createTextures();
 
+	if (timer) delete timer;
 	timer = new Timer;
 
+	if (cpu) delete cpu;
 	cpu = new CPU;
 
 	// init ram with rom
@@ -87,6 +88,7 @@ void Glouboy::init()
 	video->reset();
 	cpu->init();
 
+	if (audio) delete audio;
 	audio = new Audio;
 	audio->init();
 
@@ -142,10 +144,45 @@ void Glouboy::execute()
 
 void Glouboy::update()
 {
-	mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram, 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
+	static bool run = false;
+	static bool showMem = false;
+	static bool showAudio = false;
+
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("File"))
+		{
+			if (ImGui::MenuItem("Open", nullptr)) {
+				nfdchar_t *outPath = NULL;
+				if (NFD_OpenDialog("gb", NULL, &outPath) == NFD_OKAY)
+				{
+					init(outPath);
+					run = true;
+				}
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("option"))
+		{
+			if (ImGui::MenuItem(showMem ? "Hide Memory" : "Show Memory", nullptr)) { showMem = !showMem; }
+			if (ImGui::MenuItem(showAudio ? "Hide Audio" : "Show Audio", nullptr)) { showAudio = !showAudio; }
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
+
+	if (rom == nullptr) return;
+
+
+	if (showMem)
+		mem_edit_1.DrawWindow("Memory Editor", (unsigned char*)ram, 0x10000); // create a window and draw memory editor (if you already have a window, use DrawContents())
+
+	if (showAudio)
+		audio->imgui();
+
 	video->imgui();
 																			  
-//    unsigned char instruction = rom[PC];
+
 	static bool hexa = true;
 	ImGui::PushItemWidth(120);
 	
@@ -165,8 +202,8 @@ void Glouboy::update()
 		}
 	}
 
-	static bool run = false;
-	if (ImGui::Button("run"))
+
+	if (ImGui::Button(run?"pause":"run"))
 	{
 		run = !run;
 	}
@@ -254,5 +291,5 @@ void Glouboy::update()
 
 
 	cpu->imgui();
-	audio->imgui();
+
 }

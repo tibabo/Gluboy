@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include "imgui.h"
 #include <string.h>
 #include "glouboy.h"
 #include "io.h"
@@ -126,26 +127,20 @@ bool handleJoypad()
 	if (buttons_count > 13)
 	{
 		if (buttons[4]) return true; // for rewind
+		bool start = ImGui::IsKeyDown(257) | buttons[7];
+		bool select = ImGui::IsKeyDown(258) | buttons[6];
+		bool b = ImGui::IsKeyDown(81) | buttons[0];
+		bool a = ImGui::IsKeyDown(87) | buttons[1];
+		newButton = (start << 3 | select << 2 | b << 1 | a) ^ 0x0f; // start - select - B - A
 
-		newButton = (buttons[7] << 3 | buttons[6] << 2 | buttons[0] <<1 | buttons[1]) ^ 0x0f; // start - select - B - A
-		newDirection = (buttons[12] << 3 | buttons[10] << 2 | buttons[13] << 1 | buttons[11]) ^ 0x0f; // down up left right
 		float treshold = 0.3f;
-		if (axes[0] < -treshold)
-		{
-			newDirection &= 0b11111101;
-		}
-		if (axes[0] > treshold)
-		{
-			newDirection &= 0b11111110;
-		}
-		if (axes[1] < -treshold)
-		{
-			newDirection &= 0b11111011;
-		}
-		if (axes[1] > treshold)
-		{
-			newDirection &= 0b11110111;
-		}
+		bool left = ImGui::IsKeyDown(263) | buttons[13] | axes[0] < -treshold;
+		bool right = ImGui::IsKeyDown(262) | buttons[11] | axes[0] > treshold;
+		bool up = ImGui::IsKeyDown(265) | buttons[10] | axes[1] < -treshold;
+		bool down = ImGui::IsKeyDown(264) | buttons[12] | axes[1] > treshold;
+		newDirection = (down << 3 | up << 2 | left << 1 | right) ^ 0x0f; // down up left right
+
+		
 
 		{
 			if (newDirection < direction) 

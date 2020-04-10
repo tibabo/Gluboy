@@ -26,6 +26,7 @@ struct CPU
 		unsigned char reg_a;
 	} afstruct;
 	unsigned char RAM[0x10000];
+	unsigned char externalRAM[0x20000];
 	unsigned short bc, de, hl;
 	bool haltMode = false;
 	unsigned short PC;

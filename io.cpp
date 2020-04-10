@@ -37,6 +37,7 @@ void writeRam(unsigned short addr, int value)
 	if (addr < 0x8000)
 	{
 		int cartType = ram[0x0147];
+		//MBC1
 		if ((cartType > 0 ) && (cartType < 4))
 		{
 			static char upper = 0;
@@ -51,6 +52,22 @@ void writeRam(unsigned short addr, int value)
 			}
 			memcpy(ram + 0x4000, rom + 0x4000 * ((upper << 5) | bank), 0x4000);
 		}
+		//MBC3
+		if ((cartType >= 0x0F) && (cartType <= 0x13))
+		{
+			static char upper = 0;
+			static char bank = 0;
+			if ((addr >= 0x4000) && (addr <= 0x5fff))
+			{
+				upper = value;
+			}
+			if ((addr >= 0x2000) && (addr <= 0x3fff))
+			{
+				bank = value ? value : 1;
+			}
+			memcpy(ram + 0x4000, rom + 0x4000 * ((upper << 5) | bank), 0x4000);
+		}
+
 		return;
 	}
 

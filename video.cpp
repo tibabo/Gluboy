@@ -282,9 +282,10 @@ void Video::paintWindow(unsigned int line)
 	int tileMapAddr = (ram[IO_REGISTER | LCDC] & 0x40) ? 0x9c00 : 0x9800; // Window Tile Map Display Select 
 	int tileDataAddr = (ram[IO_REGISTER | LCDC] & 0x10) ? 0x8000 : 0x9000; // BG & Window Tile Data Select
 
-	unsigned offsetX = ram[IO_REGISTER + WX] - 7;
-	unsigned offsetY = ram[IO_REGISTER + WY];
+	signed int offsetX = ram[IO_REGISTER + WX] - 7;
+	signed int offsetY = ram[IO_REGISTER + WY];
 
+	if (offsetX > 159) return;
 	if (line < offsetY) return;
 
 	int firstTile = (line - offsetY) / 8 * NB_COL_OF_TILE;
@@ -299,10 +300,8 @@ void Video::paintWindow(unsigned int line)
 
 		int VRAMBegin = tileDataAddr + tileIndex * TILE_SIZE_IN_BYTES;
 
-
-		unsigned char y = line + offsetY - i / 32 * 8;
-		unsigned char pixelY = y + i / 32 * 8;
-		unsigned char screenY = pixelY - offsetY;
+		int y = line - offsetY - i / 32 * 8;
+		int pixelY = y + i / 32 * 8;
 
 		int ramIndex = VRAMBegin + y * 2;
 		unsigned char tileData1 = ram[ramIndex];
@@ -310,9 +309,9 @@ void Video::paintWindow(unsigned int line)
 		for (int x = 0; x < 8; x++)
 		{
 			int colorIndex = (((tileData1 >> x) & 1) | (((tileData2 >> x) & 1) << 1)) & 0x03;
-			unsigned char screenX = (7 - x) + i % 32 * 8 - offsetX;
+			signed int screenX = (7 - x) + i % 32 * 8 + offsetX;
 
-			if ((screenX >= 0) && (screenX < SCREEN_W))
+			if ((screenX >= 0) && (screenX >= offsetX) && (screenX < SCREEN_W))
 				screen[screenX + line * SCREEN_W] = backgroundPalette[colorIndex];
 		}
 	}
@@ -429,15 +428,14 @@ void Video::update()
 			}
 		}
 
-		if ((stateMode == 0) && (reg_stat & (1 << 3)))
+		if (stateMode == 0)
 		{
-			cpu->trigInterrupt(IRQ_LCDC);
+			if(reg_stat & (1 << 3))
+				cpu->trigInterrupt(IRQ_LCDC);
 		}
 
 		if (stateMode == 2)
 		{
-
-
 			if (reg_stat & (1 << 5))
 			{
 				cpu->trigInterrupt(IRQ_LCDC);

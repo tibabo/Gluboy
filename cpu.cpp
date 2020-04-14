@@ -102,10 +102,17 @@ void CPU::init()
 	SP = 0xfffe;
 	PC = 0x100;
 
+	mapper.upper = 0;
+	mapper.bank = 0;
+	mapper.ramWriteEnable = false;
+	mapper.ramBank = 0;
+	mapper.ramModified = false;
+	memcpy(ram + 0xA000, externalRAM + 0x2000 * mapper.ramBank, 0x2000); // copy first external ram bank 
+
 
 	ram[IO_REGISTER | P1] = 0xff;
 	
-	char ramWaveRandomValue[] = { 0x84, 0x40, 0x43, 0xAA, 0x2D, 0x78, 0x92, 0x3C, 0x60, 0x59, 0x59, 0xB0, 0x34, 0xB8, 0x2E, 0xDA };
+	unsigned char ramWaveRandomValue[] = { 0x84, 0x40, 0x43, 0xAA, 0x2D, 0x78, 0x92, 0x3C, 0x60, 0x59, 0x59, 0xB0, 0x34, 0xB8, 0x2E, 0xDA };
 	for (int i = 0; i < 0xf; i++) ram[IO_REGISTER | Wave_Pattern_RAM + i] = ramWaveRandomValue[i];
 
 	for (int i = 0; i < 256; i++)
@@ -733,10 +740,51 @@ void CPU::init()
 
 void CPU::update()
 {
-
 	flags.dummy0 = 0; flags.dummy1 = 0;	flags.dummy2 = 0; flags.dummy3 = 0;
 }
 
+void CPU::updateRTC()
+{
+	if (!(mapper.rtc.flag & 0x40))
+	{
+		mapper.rtc.frame++;
+		if (mapper.rtc.frame >= 60)
+		{
+			mapper.rtc.frame = 0;
+			mapper.rtc.second++;
+			if (mapper.rtc.second >= 60)
+			{
+				mapper.rtc.second = 0;
+				mapper.rtc.minute++;
+				if (mapper.rtc.minute >= 60)
+				{
+					mapper.rtc.minute = 0;
+					mapper.rtc.hour++;
+					if (mapper.rtc.hour >= 24)
+					{
+						mapper.rtc.hour = 0;
+						mapper.rtc.day++;
+						if (mapper.rtc.day >= 256)
+						{
+							mapper.rtc.flag ^= 0x01;
+						}
+					}
+				}
+			}
+		}
+		if (cpu->mapper.ramBank == 0x08)
+			ram[0xA000] = mapper.rtc.second;
+		if (cpu->mapper.ramBank == 0x09)
+			ram[0xA000] = mapper.rtc.minute;
+		if (cpu->mapper.ramBank == 0x0A)
+			ram[0xA000] = mapper.rtc.hour;
+		if (cpu->mapper.ramBank == 0x0B)
+			ram[0xA000] = mapper.rtc.day;
+		if (cpu->mapper.ramBank == 0x0C)
+			ram[0xA000] = mapper.rtc.flag;
+
+	}
+}
 void CPU::wakeHalteMode()
 {
 	if (haltMode)

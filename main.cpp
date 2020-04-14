@@ -115,7 +115,7 @@ int main(int, char**)
 		glfwMakeContextCurrent(window);
 		glfwSwapBuffers(window);
 	}
-
+	Glouboy::close();
 	// Cleanup
 	ImGui_ImplOpenGL2_Shutdown();
 	ImGui_ImplGlfw_Shutdown();

@@ -17,6 +17,7 @@ namespace Glouboy {
 	void init(const char *);
 	void update();
 	void execute();
+	void close();
 
 }
 

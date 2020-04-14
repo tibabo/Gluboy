@@ -31,6 +31,22 @@ struct CPU
 	bool haltMode = false;
 	unsigned short PC;
 	unsigned short SP;
+	struct {
+		bool mode = 0;
+		unsigned char upper = 0;
+		unsigned char bank = 0;
+		bool ramWriteEnable = false;
+		unsigned char ramBank = 0;
+		bool ramModified = false;
+		struct {
+			unsigned short frame = 0;
+			unsigned short second = 0;
+			unsigned short minute = 0;
+			unsigned short hour = 0;
+			unsigned short day = 0;
+			unsigned char flag = 0;
+		}rtc;
+	}mapper;
 	bool InterruptMasterFlag = true;
 	int shouldRiseInterruptMasterFlag = 0;
 	void enableInterrupt();
@@ -44,6 +60,7 @@ public:
 	void init();
 	void imgui();
 	void update();
+	void updateRTC();
 	void wakeHalteMode();
 };
 #define ram cpu->RAM

@@ -50,6 +50,9 @@ CPU *   cpu = nullptr;
 Video * video = nullptr;
 Timer * timer = nullptr;
 unsigned char * rom = nullptr;
+#define MAX_PATH 1024
+char savepath[MAX_PATH];
+FILE * saveFile = nullptr;
 
 void Glouboy::init(const char * path)
 {
@@ -84,6 +87,36 @@ void Glouboy::init(const char * path)
 	memset(ram, 0, 0x10000);
 	memcpy(ram, rom, 0x8000);
 
+	if (saveFile)
+	{
+		fclose(saveFile);
+		saveFile = nullptr;
+	}
+
+	if (ram[0x0149] != 0) // external ram
+	{
+		strcpy(savepath, path);
+		char * dot = strchr(savepath, '.');
+		sprintf(dot, ".sav");
+		FILE * f = ImFileOpen(savepath, "rb");
+		if (f)
+		{
+			fseek(f, 0, SEEK_END);
+			int fileSize = ftell(f);
+			if (fileSize <= 0x20000)
+			{
+				rewind(f);
+				fread(cpu->externalRAM, 1, fileSize, f);
+				fclose(f);
+			}
+		}
+
+		saveFile = ImFileOpen(savepath, "wb+");
+	}
+	else
+	{
+		sprintf(savepath,"");
+	}
 
 	video->reset();
 	cpu->init();
@@ -140,7 +173,10 @@ void Glouboy::execute()
 }
 
 
-
+void Glouboy::close()
+{
+	if (saveFile) fclose(saveFile);
+}
 
 void Glouboy::update()
 {
@@ -254,6 +290,24 @@ void Glouboy::update()
 				execute();
 				accuTC += TC;
 			}
+			cpu->updateRTC();
+
+			if (savepath[0] != 0)
+			{
+				if (cpu->mapper.ramModified)
+				{
+					cpu->mapper.ramModified = false;
+					if (saveFile)
+					{
+						rewind(saveFile);
+						fwrite(cpu->externalRAM, 1, 0x20000, saveFile);
+					}
+				}
+			}
+			//increase RTC
+			
+
+
 			states[lastState++] = { *audio, *cpu, *video, *timer };
 			lastState = lastState % TOTAL_STATES;
 			if (firstState == -1) firstState = 0;

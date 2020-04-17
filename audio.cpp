@@ -456,7 +456,7 @@ void Audio::updateChannel(char i, unsigned char value)
 	{
 		if (i == 0)
 		{
-			channel[i].length = ram[IO_REGISTER | register1[i]] & 0x3F;
+			channel[i].length = 64 - ram[IO_REGISTER | register1[i]] & 0x3F;
 			sweep.shadowFreq = ram[IO_REGISTER | register3[i]] | ((value & 0x07) << 8);
 			sweep.overflow = false;
 			channel[i].timer = computeChannelPeriode(i);
@@ -465,20 +465,20 @@ void Audio::updateChannel(char i, unsigned char value)
 		}
 		else if (i == 1)
 		{
-			channel[i].length = ram[IO_REGISTER | register1[i]] & 0x3F;
+			channel[i].length = 64 - ram[IO_REGISTER | register1[i]] & 0x3F;
 			channel[i].timer = computeChannelPeriode(i);
 			setEnvelope(i);
 		}
 		else if (i == 2)
 		{
-			channel[i].length = ram[IO_REGISTER | register1[i]];
+			channel[i].length = 256 - ram[IO_REGISTER | register1[i]];
 			channel[i].timer = computeChannelPeriode(i);
 			sampleIndex = 0;
 		}
 		else if (i == 3)
 		{
-			channel[i].length = ram[IO_REGISTER | register1[i]] & 0x3F;
-			setEnvelope(i);
+			channel[i].length = 64 - ram[IO_REGISTER | register1[i]] & 0x3F;
+			//setEnvelope(i);
 			noise.LFSR = 0xffff;
 			channel[i].timer = noise.periode;
 		}

@@ -160,6 +160,11 @@ int writeIO(unsigned short registerAddr, int value)
 	{
 		audio->updateChannel(3, value);
 	}
+	if (registerAddr == NR42)
+	{
+		ram[0xff00 | registerAddr] = value;
+		audio->setEnvelope(3);
+	}
 
 	if (registerAddr == DIV)
 	{

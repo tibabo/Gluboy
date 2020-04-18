@@ -78,7 +78,6 @@ void writeRam(unsigned short addr, int value)
 			if ((addr >= 0x6000) && (addr <= 0x7fff))
 			{
 				cpu->mapper.mode = value & 1;
-				cpu->mapper.bank = value ? value : 1;
 			}
 			if ((addr >= 0x4000) && (addr <= 0x5fff))
 			{

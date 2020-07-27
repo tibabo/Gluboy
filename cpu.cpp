@@ -864,7 +864,7 @@ void CPU::imgui()
 		char instructionLabel[128];
 		int nbPercent = 0;
 		const char * pos = opcode[instruction].opName;
-		while (pos = strchr(pos, '%'))
+		while ((pos = strchr(pos, '%')))
 		{
 			nbPercent++;
 			pos++;

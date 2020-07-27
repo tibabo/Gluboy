@@ -49,7 +49,7 @@ int background[256 * 256];
 GLuint g_backgroundTexture = 0;
 GLuint screenTexture = 0;
 
-int defaultPalette[4] = { 0xffd3f6ff,0xff75a8f9,0xff6f6beb,0xff583f7c};
+unsigned int defaultPalette[4] = { 0xffd3f6ff,0xff75a8f9,0xff6f6beb,0xff583f7c};
 
 
 
@@ -424,7 +424,14 @@ void Video::update()
 		{
 			paintFullBackground();
 			updateTextures(); 
-			if (reg_stat & (1 << 4))			{				cpu->trigInterrupt(IRQ_LCDC);			}			if (reg_stat & (1 << 5))			{				cpu->trigInterrupt(IRQ_LCDC);
+			if (reg_stat & (1 << 4))
+			{
+				cpu->trigInterrupt(IRQ_LCDC);
+			}
+
+			if (reg_stat & (1 << 5))
+			{
+				cpu->trigInterrupt(IRQ_LCDC);
 			}
 		}
 
@@ -439,7 +446,8 @@ void Video::update()
 			if (reg_stat & (1 << 5))
 			{
 				cpu->trigInterrupt(IRQ_LCDC);
-			}		}
+			}
+		}
 		if (stateMode == 3)
 		{
 			paintBackground(newLY);

@@ -1,5 +1,5 @@
-#include "al.h"
-#include "alc.h"
+#include <OpenAl/al.h>
+#include <OpenAl/alc.h>
 #include "cpu.h"
 #include "io.h"
 #include "imgui.h"

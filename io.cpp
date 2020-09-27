@@ -45,6 +45,11 @@ void writeRam(unsigned short addr, int value)
 				ram[addr] = value;
 				cpu->externalRAM[addr - 0xA000 + 0x2000 * ((cpu->mapper.mode ? cpu->mapper.ramBank : 0))] = value;
 			}
+			else if (cartType == 6) // MBC2
+			{
+				ram[addr] = value;
+				cpu->externalRAM[addr - 0xA000] = value;
+			}
 			else if ((cartType >= 0x0F) && (cartType <= 0x13)) // MBC3
 			{
 				if (cpu->mapper.ramBank <= 7)
@@ -94,6 +99,19 @@ void writeRam(unsigned short addr, int value)
 			}
 			memcpy(ram + 0xA000, cpu->externalRAM + 0x2000 * (cpu->mapper.mode ? cpu->mapper.ramBank : 0), 0x2000);
 			memcpy(ram + 0x4000, rom + 0x4000 * ((cpu->mapper.mode ? 0 : (cpu->mapper.upper << 5)) | cpu->mapper.bank), 0x4000);
+		}
+		//MBC2
+		if ((cartType >= 5) && (cartType <= 6))
+		{
+			if ((addr >= 0x2000) && (addr <= 0x3fff))
+			{
+				cpu->mapper.bank = value ? value & 0b00001111 : 1;
+				memcpy(ram + 0x4000, rom + 0x4000 * (cpu->mapper.bank), 0x4000);
+			}
+			if ((addr >= 0x0000) && (addr <= 0x1fff))
+			{
+				cpu->mapper.ramWriteEnable = (value & 0x0A) == 0x0A;
+			}
 		}
 		//MBC3
 		if ((cartType >= 0x0F) && (cartType <= 0x13))

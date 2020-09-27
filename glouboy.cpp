@@ -93,7 +93,7 @@ void Glouboy::init(const char * path)
 		saveFile = nullptr;
 	}
 
-	if (ram[0x0149] != 0) // external ram
+	if (ram[0x0149] != 0 || ram[0x0147] == 6) // external ram or mbc2
 	{
 		strcpy(savepath, path);
 		char * dot = strchr(savepath, '.');

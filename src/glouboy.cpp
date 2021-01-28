@@ -18,7 +18,7 @@
 #include "timer.h"
 #include "audio.h"
 #include "cpu.h"
-static MemoryEditor mem_edit_1;                                            // store your state somewhere
+static MemoryEditor mem_edit_1;
 
 enum {BUF_SIZE = 1024};
 

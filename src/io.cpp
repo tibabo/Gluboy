@@ -16,14 +16,6 @@ void writeRam(unsigned short addr, int value)
 		value = writeIO(0x00ff & addr, value);
 	}
 
-
-	// echo memory
-	if (addr == 0xC202)
-	{
-		int i = 0;
-		i++;
-	}
-
 	// echo memory
 	if ((addr >= 0xC000) && (addr <= 0xDDFF))
 	{

@@ -5,8 +5,8 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 #elif _WIN32
-#include <OpenAL/al.h>
-#include <OpenAL/alc.h>
+#include "al.h"
+#include "alc.h"
 #endif
 #include "cpu.h"
 #include "io.h"

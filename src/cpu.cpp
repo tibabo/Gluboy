@@ -858,6 +858,8 @@ bool CPU::handleInterrupts()
 	return false;
 }
 
+#define imguiRegister(a) {int charRegister = a; if(ImGui::InputInt(#a,&charRegister, 0, 0, ImGuiInputTextFlags_CharsHexadecimal)){ a = charRegister;} }
+
 void CPU::imgui()
 {
 	{

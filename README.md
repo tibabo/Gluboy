@@ -24,6 +24,6 @@ $ ./gluboy
 ``` 
 You may need the follwing command on ubuntu
 ```shell
- sudo apt install libgtk3-dev libopenal1 libopenal-dev libglfw3 libglfw3-dev
+ sudo apt install libgtk-3-dev libopenal-dev libglfw3-dev
  
 ``` 

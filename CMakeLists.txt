@@ -6,7 +6,6 @@ project(Gluboy)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-
 if(UNIX AND NOT APPLE)
 	set(LINUX TRUE)
 endif()
@@ -21,12 +20,10 @@ PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
 INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 LINK_DIRECTORIES(${GTK3_LIBRARY_DIRS})
 
-# Add other flags to the compiler
 ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
 
 file(GLOB PLATFORM_SOURCES ./libs/nfd/nfd_gtk.c)
 endif()
-
 
 
 file(GLOB SOURCES 
@@ -34,17 +31,41 @@ file(GLOB SOURCES
 	./libs/nfd/nfd_common.c
 	./libs/imgui/*.cpp
 )
-# add the executable
-add_executable(Gluboy ${SOURCES} ${PLATFORM_SOURCES})
+
 
 # Use folders for nice tree in Visual Studio and XCode
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+if(WIN32)
+	set(CORE_MSVC_USE_COMMON_OPTIONS off)
+	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	set(OPENAL_LIBRARY OpenAL32)
+	set(GLFW_LIBRARY glfw3 opengl32)
+	file(GLOB PLATFORM_SOURCES 
+			./libs/nfd/nfd_win.cpp)
 
-TARGET_LINK_LIBRARIES(Gluboy openal glfw GL ${GTK3_LIBRARIES})
+else()
+	set(OPENAL_LIBRARY openal)
+	set(GLFW_LIBRARY glfw GL)
+endif()
+
+# add the executable
+add_executable(Gluboy ${SOURCES} ${PLATFORM_SOURCES})
+
+TARGET_LINK_LIBRARIES(Gluboy ${OPENAL_LIBRARY} ${GLFW_LIBRARY} ${GTK3_LIBRARIES})
 
 target_include_directories(Gluboy PUBLIC
         "${PROJECT_SOURCE_DIR}/libs/imgui"
 		"${PROJECT_SOURCE_DIR}/libs/nfd/include"
         )
         
+if(WIN32)
+	target_link_directories(Gluboy PUBLIC
+		"${PROJECT_SOURCE_DIR}/libs/glfw/lib-vc2010-64/"
+		"${PROJECT_SOURCE_DIR}/libs/OpenAL/libs/")
+	target_include_directories(Gluboy PUBLIC
+        "${PROJECT_SOURCE_DIR}/libs/glfw/include"
+		"${PROJECT_SOURCE_DIR}/libs/OpenAl/include"
+        )
+
+endif()

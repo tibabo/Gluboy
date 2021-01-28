@@ -366,7 +366,8 @@ nfdresult_t NFD_OpenDirectoryDialog( const char *filterList,
 	printf("NFD_OpenDirectory()\n");
 	
     nfdresult_t nfdResult = NFD_ERROR;
-    
+    ::IFileOpenDialog *fileOpenDialog(NULL);
+
     // Init COM library.
     HRESULT result = ::CoInitializeEx(NULL,
                                       ::COINIT_APARTMENTTHREADED |
@@ -377,7 +378,7 @@ nfdresult_t NFD_OpenDirectoryDialog( const char *filterList,
         goto end;
     }
 
-    ::IFileOpenDialog *fileOpenDialog(NULL);
+
 
     // Create dialog
     result = ::CoCreateInstance(::CLSID_FileOpenDialog, NULL,
@@ -469,6 +470,7 @@ nfdresult_t NFD_OpenDialog( const char *filterList,
                             nfdchar_t **outPath )
 {
     nfdresult_t nfdResult = NFD_ERROR;
+    ::IFileOpenDialog *fileOpenDialog(NULL);
     
     // Init COM library.
     HRESULT result = ::CoInitializeEx(NULL,
@@ -480,7 +482,7 @@ nfdresult_t NFD_OpenDialog( const char *filterList,
         goto end;
     }
 
-    ::IFileOpenDialog *fileOpenDialog(NULL);
+
 
     // Create dialog
     result = ::CoCreateInstance(::CLSID_FileOpenDialog, NULL,

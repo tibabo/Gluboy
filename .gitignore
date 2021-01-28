@@ -7,3 +7,9 @@ UM0080.pdf
 Tetris.gb
 imgui/.github/
 imgui/.gitattributes
+
+.vscode/
+
+.idea/
+
+build/

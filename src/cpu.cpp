@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "glouboy.h"
 #include "cpu.h"
 #include "imgui.h"

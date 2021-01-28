@@ -12,7 +12,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imgui_memory_editor.h"
-#include "libs/nfd/include/nfd.h"
+#include "nfd.h"
 #include "io.h"
 #include "video.h"
 #include "timer.h"
@@ -115,7 +115,7 @@ void Glouboy::init(const char * path)
 	}
 	else
 	{
-		sprintf(savepath,"");
+		savepath[0] = '\0';
 	}
 
 	video->reset();

@@ -1,5 +1,13 @@
-#include <OpenAl/al.h>
-#include <OpenAl/alc.h>
+#ifdef __APPLE__
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#elif __linux__
+#include <AL/al.h>
+#include <AL/alc.h>
+#elif _WIN32
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#endif
 #include "cpu.h"
 #include "io.h"
 #include "imgui.h"

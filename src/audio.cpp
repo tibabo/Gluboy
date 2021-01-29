@@ -129,10 +129,11 @@ void checkProcessedBuffer()
 {
 	ALCenum error;
 	ALint Processed;
-	alGetSourcei(source, AL_BUFFERS_PROCESSED, &Processed);
-	error = alGetError();
+	ALint source_state;
 	ALuint ProcessedBuffers[NB_BUFFER];
-	if (Processed != 0)
+	alGetSourcei(source, AL_BUFFERS_PROCESSED, &Processed);
+	alGetSourcei(source, AL_SOURCE_STATE, &source_state);
+	if (source_state == AL_PLAYING && Processed != 0)
 	{
 		alSourceUnqueueBuffers(source, Processed, ProcessedBuffers);
 		error = alGetError();

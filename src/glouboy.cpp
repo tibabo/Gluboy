@@ -138,13 +138,13 @@ void Glouboy::execute()
 	{
 		if (loggingNewData)
 		{
-			fprintf(f, "%04x\n", cpu->PC);
+			fprintf(f, "%04x\n", PC);
 		}
 		else
 		{
 			unsigned int otherPC;
 			fscanf(f, "%04x\n", &otherPC);
-			if (cpu->PC != otherPC)
+			if (PC != otherPC)
 			{
 				int i = 0;
 				i++;
@@ -158,7 +158,7 @@ void Glouboy::execute()
 	}
 	else if (cpu->haltMode == false)
 	{
-		unsigned char instruction = ram[cpu->PC];
+		unsigned char instruction = ram[PC];
 		opcode[instruction].funct();
 	}
 	else
@@ -324,7 +324,7 @@ void Glouboy::update()
 		{
 			do {
 				execute();
-			} while (cpu->PC != breakpointPC);
+			} while (PC != breakpointPC);
 		}
 	}
 	ImGui::SameLine();
@@ -336,7 +336,7 @@ void Glouboy::update()
 			int nextOp = -1;
 			do {
 				execute();
-				nextOp = ram[cpu->PC] << 16 | ram[cpu->PC + 1] << 8 | ram[cpu->PC + 2];
+				nextOp = ram[PC] << 16 | ram[PC + 1] << 8 | ram[PC + 2];
 			} while (breakpointOpcode != nextOp);
 		}
 	}

@@ -1,13 +1,13 @@
 #pragma once
 #include <functional>
 
+	
 struct opcodeStruct
 {
-	std::function<void(void)> funct;
+	void (*funct)();
 	const char * opName;
 };
-
-extern opcodeStruct opcode[256];
+extern	opcodeStruct opcode[256];
 
 struct CPU
 {
@@ -29,8 +29,8 @@ struct CPU
 	unsigned char externalRAM[0x20000];
 	unsigned short bc, de, hl;
 	bool haltMode = false;
-	unsigned short PC;
-	unsigned short SP;
+	unsigned short pc;
+	unsigned short sp;
 	struct {
 		bool mode = 0;
 		unsigned char upper = 0;
@@ -62,7 +62,14 @@ public:
 	void update();
 	void updateRTC();
 	void wakeHalteMode();
+
 };
+
 #define ram cpu->RAM
-extern unsigned char TC;
+#define PC cpu->pc
+#define SP cpu->sp
+#define BC cpu->bc
+#define DE cpu->de
+#define HL cpu->hl
 extern CPU * cpu;
+extern unsigned char TC;

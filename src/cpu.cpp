@@ -9,77 +9,77 @@ opcodeStruct opcode[256];
 opcodeStruct CBopcode[256];
 unsigned char TC = 0;
 
-#undef ram 
-#define ram RAM
+//#undef ram 
+//#define ram RAM
 
-#define flags afstruct.flag
+#define flags cpu->afstruct.flag
 
-#define af (*((unsigned short*)&afstruct))
+#define af (*((unsigned short*)&cpu->afstruct))
 
-#define reg_f  (*((unsigned char*)&afstruct))
-#define reg_a  (*(((unsigned char*)&afstruct) + 1))
+#define reg_f  (*((unsigned char*)&cpu->afstruct))
+#define reg_a  (*(((unsigned char*)&cpu->afstruct) + 1))
 
-#define reg_c  (*((unsigned char*)&bc))
-#define reg_b  (*(((unsigned char*)&bc) + 1))
+#define reg_c  (*((unsigned char*)&BC))
+#define reg_b  (*(((unsigned char*)&BC) + 1))
 
-#define reg_e  (*((unsigned char*)&de))
-#define reg_d  (*(((unsigned char*)&de) + 1))
+#define reg_e  (*((unsigned char*)&DE))
+#define reg_d  (*(((unsigned char*)&DE) + 1))
 
-#define reg_l  (*((unsigned char*)&hl))
-#define reg_h  (*(((unsigned char*)&hl) + 1))
+#define reg_l  (*((unsigned char*)&HL))
+#define reg_h  (*(((unsigned char*)&HL) + 1))
 
 
 
 
 #define update_carry() {flags.H = (carrybits & 0x10)>0; flags.C = (carrybits & 0x100)>0;}
 
-#define INC_ss(a) { [this](){ TC += 8;  a++;  PC +=1;}, "INC " #a  }
-#define INC_r(a,clock) { [this](){ TC += clock;  flags.N = 0; flags.H = (a & 0x0F) == 0x0F; a += 1;  flags.Z = (a == 0);  PC +=1;}, "INC " #a }
+#define INC_ss(a) { [](){ TC += 8;  a++;  PC +=1;}, "INC " #a  }
+#define INC_r(a,clock) { [](){ TC += clock;  flags.N = 0; flags.H = (a & 0x0F) == 0x0F; a += 1;  flags.Z = (a == 0);  PC +=1;}, "INC " #a }
 
-#define DEC_r(a,clock) { [this](){ TC += clock;  flags.N = 1; flags.H = (a & 0x0F) == 0x00; a -= 1;  flags.Z = (a == 0);  PC +=1;}, "DEC " #a }
-#define LD_r_n(a,clock) { [this](){ TC += clock;  a = ram[PC + 1];                                                     PC +=2;}, "LD " #a ", 0x%02x" }
-#define LD_ss_n(a) {[this](){ TC += 12; a = ram[PC + 1] | (ram[PC + 2]<<8);                                            PC +=3;}, "LD " #a ", 0x%02x%02x" }
-#define LD_ssp_r(a,r) {[this](){ TC += 8;               writeRam(a,r);                                                 PC +=1;}, "LD (" #a "), A" }
-#define ADD_ss_ss(a,b) {[this](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = ((a & 0xfff) + (b & 0xfff)) > 0xfff;  a = sum; flags.C = sum > 0xFFFF; PC +=1;}, "ADD " #a ", " #b } 
-#define DEC_ss(a) { [this](){ TC += 8;  a--;                                                               PC +=1;}, "DEC " #a }
-#define LD_r_ss(r,ss) { [this](){ TC += 8; r = ram[ss];                                                     PC +=1;}, "LD " #r ", (" #ss ")" }
-#define LD_r_r(a,b) { [this](){ TC += 4; a = b;                                                             PC +=1;}, "LD " #a ", " #b }
-#define SUB_r(x,clock) {  [this](){ TC += clock; unsigned char value = x; flags.N = 1; int result = reg_a - value; int carrybits = value ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "SUB " #x }
+#define DEC_r(a,clock) { [](){ TC += clock;  flags.N = 1; flags.H = (a & 0x0F) == 0x00; a -= 1;  flags.Z = (a == 0);  PC +=1;}, "DEC " #a }
+#define LD_r_n(a,clock) { [](){ TC += clock;  a = ram[PC + 1];                                                     PC +=2;}, "LD " #a ", 0x%02x" }
+#define LD_ss_n(a) {[](){ TC += 12; a = ram[PC + 1] | (ram[PC + 2]<<8);                                            PC +=3;}, "LD " #a ", 0x%02x%02x" }
+#define LD_ssp_r(a,r) {[](){ TC += 8;               writeRam(a,r);                                                 PC +=1;}, "LD (" #a "), A" }
+#define ADD_ss_ss(a,b) {[](){ TC += 8;  flags.N = 0; uint32_t sum = a + b; flags.H = ((a & 0xfff) + (b & 0xfff)) > 0xfff;  a = sum; flags.C = sum > 0xFFFF; PC +=1;}, "ADD " #a ", " #b } 
+#define DEC_ss(a) { [](){ TC += 8;  a--;                                                               PC +=1;}, "DEC " #a }
+#define LD_r_ss(r,ss) { [](){ TC += 8; r = ram[ss];                                                     PC +=1;}, "LD " #r ", (" #ss ")" }
+#define LD_r_r(a,b) { [](){ TC += 4; a = b;                                                             PC +=1;}, "LD " #a ", " #b }
+#define SUB_r(x,clock) {  [](){ TC += clock; unsigned char value = x; flags.N = 1; int result = reg_a - value; int carrybits = value ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "SUB " #x }
 
-#define ADD_r(x,clock)  { [this](){ TC += clock; unsigned char value = x; flags.N = 0; int result = reg_a + value; int carrybits = value ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "ADD A, " #x }
+#define ADD_r(x,clock)  { [](){ TC += clock; unsigned char value = x; flags.N = 0; int result = reg_a + value; int carrybits = value ^ reg_a ^ result; reg_a = result; update_carry(); flags.Z = (reg_a == 0); PC +=1;}, "ADD A, " #x }
 
-#define AND_r(x,clock)  { [this](){ TC += clock;  flags.N = 0; int result = reg_a & x; reg_a = result; flags.H = 1; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "AND A, " #x }
-#define OR_r(x,clock)   { [this](){ TC += clock;  flags.N = 0; int result = reg_a | x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "OR A, " #x }
-#define ADC_r(x,clock)  { [this](){ TC += clock;  flags.N = 0; unsigned char value = x; int result = reg_a + value + flags.C; flags.H = ((reg_a & 0x0F) + (value & 0x0F) + flags.C ) > 0x0F; flags.C = result > 0xFF; reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "ADC A, " #x }
-#define SBC_r(x,clock)  { [this](){ TC += clock;  flags.N = 1; unsigned char value = x;  int result = reg_a - value - flags.C; int carrybits = value ^ reg_a ^ result ^ flags.C; update_carry(); reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "SBC A, " #x }
-#define XOR_r(x,clock)  { [this](){ TC += clock;  flags.N = 0; int result = reg_a ^ x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "XOR A, " #x }
-#define CP_r(x,clock)   { [this](){ TC += clock;  flags.N = 1; unsigned char value = x; int result = reg_a - value; int carrybits = value ^ reg_a ^ result ^ flags.C; flags.H = (carrybits & 0x10)>0; flags.C = (reg_a < value);  flags.Z = (result == 0); PC +=1;}, "CP A, " #x }
+#define AND_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a & x; reg_a = result; flags.H = 1; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "AND A, " #x }
+#define OR_r(x,clock)   { [](){ TC += clock;  flags.N = 0; int result = reg_a | x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "OR A, " #x }
+#define ADC_r(x,clock)  { [](){ TC += clock;  flags.N = 0; unsigned char value = x; int result = reg_a + value + flags.C; flags.H = ((reg_a & 0x0F) + (value & 0x0F) + flags.C ) > 0x0F; flags.C = result > 0xFF; reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "ADC A, " #x }
+#define SBC_r(x,clock)  { [](){ TC += clock;  flags.N = 1; unsigned char value = x;  int result = reg_a - value - flags.C; int carrybits = value ^ reg_a ^ result ^ flags.C; update_carry(); reg_a = result; flags.Z = (reg_a == 0); PC +=1;}, "SBC A, " #x }
+#define XOR_r(x,clock)  { [](){ TC += clock;  flags.N = 0; int result = reg_a ^ x; reg_a = result; flags.H = 0; flags.C = 0; flags.Z = (reg_a == 0); PC +=1;}, "XOR A, " #x }
+#define CP_r(x,clock)   { [](){ TC += clock;  flags.N = 1; unsigned char value = x; int result = reg_a - value; int carrybits = value ^ reg_a ^ result ^ flags.C; flags.H = (carrybits & 0x10)>0; flags.C = (reg_a < value);  flags.Z = (result == 0); PC +=1;}, "CP A, " #x }
 
-#define JR_X_r8(r)      { [this](){ if(r) {TC += 12;  PC += (signed char)(ram[PC + 1]) + 2;} else {TC += 8; PC += 2;} }, "JP " #r ", %d" }
+#define JR_X_r8(r)      { [](){ if(r) {TC += 12;  PC += (signed char)(ram[PC + 1]) + 2;} else {TC += 8; PC += 2;} }, "JP " #r ", %d" }
 
-#define JP_X_A16(r)     { [this](){ if(r) {TC += 16;  PC = ram[PC + 1] | (ram[PC + 2]<<8);} else {TC += 12; PC += 3;} }, "JP " #r ", 0x%02x%02x" }
+#define JP_X_A16(r)     { [](){ if(r) {TC += 16;  PC = ram[PC + 1] | (ram[PC + 2]<<8);} else {TC += 12; PC += 3;} }, "JP " #r ", 0x%02x%02x" }
 
-#define CALL_X_A16(r)   { [this](){ if(r) {TC+=24; int destination = ram[PC + 1] | (ram[PC + 2]<<8); PC+=3; ram[--SP] = (unsigned char)(PC>>8); ram[--SP] = (unsigned char)PC; PC = destination;} else { TC+=12; PC+=3; }},  "CALL " #r ", 0x%02x%02x"}
-#define PUSH_ss(r)      { [this](){ TC+=16; ram[--SP] = (unsigned char)(r>>8); ram[--SP] =(unsigned char) r; PC +=1; }, "PUSH " #r }
-#define RET_X(r)        { [this](){ if(r) {TC+=20; PC = ram[SP] | (ram[SP+1]<<8); SP+=2;} else {TC+=8; PC+=1; } }, "RET " #r }
-#define POP_ss(r)       { [this](){ TC+=12; r = ram[SP] | (ram[SP+1]<<8); SP+=2; PC +=1; }, "POP " #r }
+#define CALL_X_A16(r)   { [](){ if(r) {TC+=24; int destination = ram[PC + 1] | (ram[PC + 2]<<8); PC+=3; ram[--SP] = (unsigned char)(PC>>8); ram[--SP] = (unsigned char)PC; PC = destination;} else { TC+=12; PC+=3; }},  "CALL " #r ", 0x%02x%02x"}
+#define PUSH_ss(r)      { [](){ TC+=16; ram[--SP] = (unsigned char)(r>>8); ram[--SP] =(unsigned char) r; PC +=1; }, "PUSH " #r }
+#define RET_X(r)        { [](){ if(r) {TC+=20; PC = ram[SP] | (ram[SP+1]<<8); SP+=2;} else {TC+=8; PC+=1; } }, "RET " #r }
+#define POP_ss(r)       { [](){ TC+=12; r = ram[SP] | (ram[SP+1]<<8); SP+=2; PC +=1; }, "POP " #r }
 
-#define RST_n(r)        { [this](){ TC+=16; PC += 1; ram[--SP] = (unsigned char)(PC>>8); ram[--SP] = (unsigned char)PC;  PC = r; }, "RST " #r}
-#define RLC_n(r)        { [this](){ TC += 8; char carry = (r & 0x80)>>7; r = (r << 1) | carry; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RLC " #r }
-#define RRC_n(r)        { [this](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | carry<<7; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RRC " #r }
-#define RL_n(r)         { [this](){ TC += 8; char carry = (r & 0x80)>>7; r = (r << 1) | flags.C; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RL " #r }
-#define RR_n(r)         { [this](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | (flags.C<<7); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RR " #r }
-#define SLA_n(r)        { [this](){ TC += 8; flags.C = (r & 0x80)>>7; r = (r << 1); flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SLA " #r }
-#define SRA_n(r)        { [this](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | (r & 0x80); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SRA " #r }
-#define SWAP(r)         { [this](){ TC += 8; r = r>>4 | r<<4; flags.C = 0; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SWAP " #r }
-#define SRL(r)          { [this](){ TC += 8; char carry = (r & 0x01); r = (r >> 1); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SRL " #r }
-#define BIT(b,r)        { [this](){ TC += 8; flags.Z = !(r & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", " #r};
-#define BIT_HL(b)       { [this](){ TC += 8; flags.Z = !(ram[hl] & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", (hl)"};
+#define RST_n(r)        { [](){ TC+=16; PC += 1; ram[--SP] = (unsigned char)(PC>>8); ram[--SP] = (unsigned char)PC;  PC = r; }, "RST " #r}
+#define RLC_n(r)        { [](){ TC += 8; char carry = (r & 0x80)>>7; r = (r << 1) | carry; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RLC " #r }
+#define RRC_n(r)        { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | carry<<7; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RRC " #r }
+#define RL_n(r)         { [](){ TC += 8; char carry = (r & 0x80)>>7; r = (r << 1) | flags.C; flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RL " #r }
+#define RR_n(r)         { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | (flags.C<<7); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "RR " #r }
+#define SLA_n(r)        { [](){ TC += 8; flags.C = (r & 0x80)>>7; r = (r << 1); flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SLA " #r }
+#define SRA_n(r)        { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1) | (r & 0x80); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SRA " #r }
+#define SWAP(r)         { [](){ TC += 8; r = r>>4 | r<<4; flags.C = 0; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SWAP " #r }
+#define SRL(r)          { [](){ TC += 8; char carry = (r & 0x01); r = (r >> 1); flags.C = carry; flags.N = 0; flags.Z = !r; flags.H = 0;   PC +=2;}, "SRL " #r }
+#define BIT(b,r)        { [](){ TC += 8; flags.Z = !(r & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", " #r};
+#define BIT_HL(b)       { [](){ TC += 8; flags.Z = !(ram[HL] & (0x01 << b)); flags.N = 0; flags.H = 1; PC +=2;}, "BIT " #b ", (HL)"};
 
-#define SET(b,r)        { [this](){ TC += 8; r |= (0x01 << b); PC +=2;}, "SET " #b ", " #r};
-#define SET_HL(b)       { [this](){ TC += 8; writeRam(hl, ram[hl] | (0x01 << b)); PC +=2;}, "SET " #b ", (hl)"};
-#define RES(b,r)        { [this](){ TC += 8; r &= 0xff^(0x01 << b); PC +=2;} , "RES " #b ", " #r};
-#define RES_HL(b)       { [this](){ TC += 8; writeRam(hl, ram[hl] & (0xff^(0x01 << b))); PC +=2;} , "RES " #b ", (hl)"};
+#define SET(b,r)        { [](){ TC += 8; r |= (0x01 << b); PC +=2;}, "SET " #b ", " #r};
+#define SET_HL(b)       { [](){ TC += 8; writeRam(HL, ram[HL] | (0x01 << b)); PC +=2;}, "SET " #b ", (HL)"};
+#define RES(b,r)        { [](){ TC += 8; r &= 0xff^(0x01 << b); PC +=2;} , "RES " #b ", " #r};
+#define RES_HL(b)       { [](){ TC += 8; writeRam(HL, ram[HL] & (0xff^(0x01 << b))); PC +=2;} , "RES " #b ", (HL)"};
 
 void CPU::jumpToVector(int vector)
 {
@@ -118,47 +118,47 @@ void CPU::init()
 
 	for (int i = 0; i < 256; i++)
 	{
-		opcode[i] = { [this]() {
+		opcode[i] = { []() {
 			PC += 1;
 		}, "unimplemented" };
 	}
-	opcode[0xf3] = { [this]() { /* DI */   TC += 4;  disableInterrupt(); PC += 1; }, "DI" };
-	opcode[0xfB] = { [this]() { /* EI */   TC += 4;  delayedEnableInterrupt(); PC += 1; }, "EI" };
-	opcode[0xD9] = { [this]() { /* RETI */ TC += 16; enableInterrupt(); PC = ram[SP] | (ram[SP + 1] << 8); SP += 2; }, "RETI" };
+	opcode[0xf3] = { []() { /* DI */   TC += 4;  cpu->disableInterrupt(); PC += 1; }, "DI" };
+	opcode[0xfB] = { []() { /* EI */   TC += 4;  cpu->delayedEnableInterrupt(); PC += 1; }, "EI" };
+	opcode[0xD9] = { []() { /* RETI */ TC += 16; cpu->enableInterrupt(); PC = ram[SP] | (ram[SP + 1] << 8); SP += 2; }, "RETI" };
 
 
-	opcode[0x76] = { [this]() { /* HALT */   TC += 4;  haltMode = true; PC += 1; }, "HALT" };
+	opcode[0x76] = { []() { /* HALT */   TC += 4;  cpu->haltMode = true; PC += 1; }, "HALT" };
 
-	opcode[0x00] = { [this]() { /* NOP */  TC += 4;  PC += 1; }, "NOP" };
-	opcode[0x01] = LD_ss_n(bc);
-	opcode[0x11] = LD_ss_n(de);
-	opcode[0x21] = LD_ss_n(hl);
+	opcode[0x00] = { []() { /* NOP */  TC += 4;  PC += 1; }, "NOP" };
+	opcode[0x01] = LD_ss_n(BC);
+	opcode[0x11] = LD_ss_n(DE);
+	opcode[0x21] = LD_ss_n(HL);
 	opcode[0x31] = LD_ss_n(SP);
 
-	opcode[0x02] = LD_ssp_r(bc, reg_a);
-	opcode[0x12] = LD_ssp_r(de, reg_a);
-	opcode[0x22] = LD_ssp_r(hl++, reg_a);
-	opcode[0x32] = LD_ssp_r(hl--, reg_a);
+	opcode[0x02] = LD_ssp_r(BC, reg_a);
+	opcode[0x12] = LD_ssp_r(DE, reg_a);
+	opcode[0x22] = LD_ssp_r(HL++, reg_a);
+	opcode[0x32] = LD_ssp_r(HL--, reg_a);
 
 
-	opcode[0x77] = LD_ssp_r(hl, reg_a);
-	opcode[0x70] = LD_ssp_r(hl, reg_b);
-	opcode[0x71] = LD_ssp_r(hl, reg_c);
-	opcode[0x72] = LD_ssp_r(hl, reg_d);
-	opcode[0x73] = LD_ssp_r(hl, reg_e);
-	opcode[0x74] = LD_ssp_r(hl, reg_h);
-	opcode[0x75] = LD_ssp_r(hl, reg_l);
+	opcode[0x77] = LD_ssp_r(HL, reg_a);
+	opcode[0x70] = LD_ssp_r(HL, reg_b);
+	opcode[0x71] = LD_ssp_r(HL, reg_c);
+	opcode[0x72] = LD_ssp_r(HL, reg_d);
+	opcode[0x73] = LD_ssp_r(HL, reg_e);
+	opcode[0x74] = LD_ssp_r(HL, reg_h);
+	opcode[0x75] = LD_ssp_r(HL, reg_l);
 
 
-	opcode[0x03] = INC_ss(bc);
-	opcode[0x13] = INC_ss(de);
-	opcode[0x23] = INC_ss(hl);
+	opcode[0x03] = INC_ss(BC);
+	opcode[0x13] = INC_ss(DE);
+	opcode[0x23] = INC_ss(HL);
 	opcode[0x33] = INC_ss(SP);
 
 	opcode[0x04] = INC_r(reg_b, 4);
 	opcode[0x14] = INC_r(reg_d, 4);
 	opcode[0x24] = INC_r(reg_h, 4);
-	opcode[0x34] = INC_r(ram[hl], 12);
+	opcode[0x34] = INC_r(ram[HL], 12);
 	opcode[0x0C] = INC_r(reg_c, 4);
 	opcode[0x1C] = INC_r(reg_e, 4);
 	opcode[0x2C] = INC_r(reg_l, 4);
@@ -168,7 +168,7 @@ void CPU::init()
 	opcode[0x05] = DEC_r(reg_b, 4);
 	opcode[0x15] = DEC_r(reg_d, 4);
 	opcode[0x25] = DEC_r(reg_h, 4);
-	opcode[0x35] = DEC_r(ram[hl], 12);
+	opcode[0x35] = DEC_r(ram[HL], 12);
 
 	opcode[0x0D] = DEC_r(reg_c, 4);
 	opcode[0x1D] = DEC_r(reg_e, 4);
@@ -178,36 +178,36 @@ void CPU::init()
 	opcode[0x06] = LD_r_n(reg_b, 8);
 	opcode[0x16] = LD_r_n(reg_d, 8);
 	opcode[0x26] = LD_r_n(reg_h, 8);
-	opcode[0x36] = { [this]() { TC += 12;  writeRam(hl, ram[PC + 1]); PC += 2; }, "LD (hl), 0x%02x" };
+	opcode[0x36] = { []() { TC += 12;  writeRam(HL, ram[PC + 1]); PC += 2; }, "LD (HL), 0x%02x" };
 	opcode[0x0E] = LD_r_n(reg_c, 8);
 	opcode[0x1E] = LD_r_n(reg_e, 8);
 	opcode[0x2E] = LD_r_n(reg_l, 8);
 	opcode[0x3E] = LD_r_n(reg_a, 8);
 
-	opcode[0x07] = { [this]() { /* RLCA    */ TC += 4;  char carry = (reg_a & 128) > 0; reg_a = (reg_a << 1) | carry;     flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; } , "RLCA" };
-	opcode[0x17] = { [this]() { /* RLA    */  TC += 4;  char carry = (reg_a & 128) > 0; reg_a = (reg_a << 1) | flags.C;   flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; } , "RLA" };
-	opcode[0x0F] = { [this]() { /* RRCA    */ TC += 4;  char carry = (reg_a & 1); reg_a = (reg_a >> 1) | (carry << 7);  flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; }, "RRCA" };
-	opcode[0x1F] = { [this]() { /* RRA    */  TC += 4;  char carry = (reg_a & 1); reg_a = (reg_a >> 1) | (flags.C << 7); flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; }, "RRA" };
+	opcode[0x07] = { []() { /* RLCA    */ TC += 4;  char carry = (reg_a & 128) > 0; reg_a = (reg_a << 1) | carry;     flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; } , "RLCA" };
+	opcode[0x17] = { []() { /* RLA    */  TC += 4;  char carry = (reg_a & 128) > 0; reg_a = (reg_a << 1) | flags.C;   flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; } , "RLA" };
+	opcode[0x0F] = { []() { /* RRCA    */ TC += 4;  char carry = (reg_a & 1); reg_a = (reg_a >> 1) | (carry << 7);  flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; }, "RRCA" };
+	opcode[0x1F] = { []() { /* RRA    */  TC += 4;  char carry = (reg_a & 1); reg_a = (reg_a >> 1) | (flags.C << 7); flags.C = carry; flags.N = 0; flags.Z = 0; flags.H = 0;   PC += 1; }, "RRA" };
 
-	opcode[0x08] = { [this]() { /* LD (A16) SP */ TC += 20; uint32_t addr = ram[PC + 1] | (ram[PC + 2] << 8); ram[addr] = (unsigned char)SP; ram[addr + 1] = (unsigned char)(SP >> 8); PC += 3; } , "LD (0x%02x%02x) SP" };
-	opcode[0x09] = ADD_ss_ss(hl, bc);
-	opcode[0x19] = ADD_ss_ss(hl, de);
-	opcode[0x29] = ADD_ss_ss(hl, hl);
-	opcode[0x39] = ADD_ss_ss(hl, SP);
+	opcode[0x08] = { []() { /* LD (A16) SP */ TC += 20; uint32_t addr = ram[PC + 1] | (ram[PC + 2] << 8); ram[addr] = (unsigned char)SP; ram[addr + 1] = (unsigned char)(SP >> 8); PC += 3; } , "LD (0x%02x%02x) SP" };
+	opcode[0x09] = ADD_ss_ss(HL, BC);
+	opcode[0x19] = ADD_ss_ss(HL, DE);
+	opcode[0x29] = ADD_ss_ss(HL, HL);
+	opcode[0x39] = ADD_ss_ss(HL, SP);
 
-	opcode[0x0A] = LD_r_ss(reg_a, bc);
-	opcode[0x1A] = LD_r_ss(reg_a, de);
-	opcode[0x2A] = LD_r_ss(reg_a, hl++);
-	opcode[0x3A] = LD_r_ss(reg_a, hl--);
+	opcode[0x0A] = LD_r_ss(reg_a, BC);
+	opcode[0x1A] = LD_r_ss(reg_a, DE);
+	opcode[0x2A] = LD_r_ss(reg_a, HL++);
+	opcode[0x3A] = LD_r_ss(reg_a, HL--);
 
-	opcode[0x46] = LD_r_ss(reg_b, hl);
-	opcode[0x56] = LD_r_ss(reg_d, hl);
-	opcode[0x66] = LD_r_ss(reg_h, hl);
+	opcode[0x46] = LD_r_ss(reg_b, HL);
+	opcode[0x56] = LD_r_ss(reg_d, HL);
+	opcode[0x66] = LD_r_ss(reg_h, HL);
 
-	opcode[0x4E] = LD_r_ss(reg_c, hl);
-	opcode[0x5E] = LD_r_ss(reg_e, hl);
-	opcode[0x6E] = LD_r_ss(reg_l, hl);
-	opcode[0x7E] = LD_r_ss(reg_a, hl);
+	opcode[0x4E] = LD_r_ss(reg_c, HL);
+	opcode[0x5E] = LD_r_ss(reg_e, HL);
+	opcode[0x6E] = LD_r_ss(reg_l, HL);
+	opcode[0x7E] = LD_r_ss(reg_a, HL);
 
 	opcode[0x40] = LD_r_r(reg_b, reg_b);
 	opcode[0x50] = LD_r_r(reg_d, reg_b);
@@ -272,23 +272,23 @@ void CPU::init()
 	opcode[0x6F] = LD_r_r(reg_l, reg_a);
 	opcode[0x7F] = LD_r_r(reg_a, reg_a);
 
-	opcode[0xE2] = /* LD (C) A   */{ [this]() { TC += 8; writeRam(0xff00 | reg_c, reg_a); PC += 1; }, " LD (C) A" };
-	opcode[0xF2] = /* LD  A (C)  */{ [this]() { TC += 8; reg_a = ram[0xff00 | reg_c]; PC += 1; }, "LD  A (C)" };
-	opcode[0xE0] = /* LDH (a8) A */{ [this]() { TC += 12; writeRam(0xff00 | ram[PC + 1], reg_a); PC += 2; }, "LDH (0x%02x) A" };
-	opcode[0xF0] = /* LDH  A (a8)*/{ [this]() { TC += 12; reg_a = ram[0xff00 | ram[PC + 1]]; PC += 2; }, "LDH  A (0x%02x)" };
+	opcode[0xE2] = /* LD (C) A   */{ []() { TC += 8; writeRam(0xff00 | reg_c, reg_a); PC += 1; }, " LD (C) A" };
+	opcode[0xF2] = /* LD  A (C)  */{ []() { TC += 8; reg_a = ram[0xff00 | reg_c]; PC += 1; }, "LD  A (C)" };
+	opcode[0xE0] = /* LDH (a8) A */{ []() { TC += 12; writeRam(0xff00 | ram[PC + 1], reg_a); PC += 2; }, "LDH (0x%02x) A" };
+	opcode[0xF0] = /* LDH  A (a8)*/{ []() { TC += 12; reg_a = ram[0xff00 | ram[PC + 1]]; PC += 2; }, "LDH  A (0x%02x)" };
 
-	opcode[0xEA] = /* LD (a16) A */{ [this]() { TC += 16; writeRam(ram[PC + 1] | (ram[PC + 2] << 8), reg_a); PC += 3; }, "LD (0x%02x%02x) A" };
-	opcode[0xFA] = /* LD A (a16) */{ [this]() { TC += 16; reg_a = ram[ram[PC + 1] | (ram[PC + 2] << 8)]; PC += 3; }, "LD A (0x%02x%02x)" };
+	opcode[0xEA] = /* LD (a16) A */{ []() { TC += 16; writeRam(ram[PC + 1] | (ram[PC + 2] << 8), reg_a); PC += 3; }, "LD (0x%02x%02x) A" };
+	opcode[0xFA] = /* LD A (a16) */{ []() { TC += 16; reg_a = ram[ram[PC + 1] | (ram[PC + 2] << 8)]; PC += 3; }, "LD A (0x%02x%02x)" };
 
-	opcode[0xF9] = /* LD SP,HL   */{ [this]() { TC += 8; SP = hl; PC += 1; }, "LD SP,HL" };
-	opcode[0xF8] = /* LD HL,SP+r8*/{ [this]() { TC += 12; flags.N = 0; flags.Z = 0;
+	opcode[0xF9] = /* LD SP,HL   */{ []() { TC += 8; SP = HL; PC += 1; }, "LD SP,HL" };
+	opcode[0xF8] = /* LD HL,SP+r8*/{ []() { TC += 12; flags.N = 0; flags.Z = 0;
 										  int x = (signed char)(ram[PC + 1]);
 										  int result = SP + x;
 										  flags.C = (result & 0xff) < (SP & 0xff);
 										  flags.H = (result & 0x0f) < (SP & 0x0f);
-										  hl = result;
+										  HL = result;
 										  PC += 2; }, "LD HL,SP+0x%02x" };
-	opcode[0xE8] = /* ADD SP,r8*/{ [this]() { TC += 16; flags.N = 0; flags.Z = 0;
+	opcode[0xE8] = /* ADD SP,r8*/{ []() { TC += 16; flags.N = 0; flags.Z = 0;
 										  int x = (signed char)(ram[PC + 1]);
 										  int result = SP + x;
 										  flags.C = (result & 0xff) < (SP & 0xff);
@@ -319,21 +319,21 @@ void CPU::init()
 	opcode[0xD8] = RET_X(flags.C);
 	opcode[0xC0] = RET_X(!flags.Z);
 	opcode[0xD0] = RET_X(!flags.C);
-	opcode[0xC9] = {/* RET */ [this]() {TC += 16; PC = ram[SP] | (ram[SP + 1] << 8); SP += 2; }, "RET" };
+	opcode[0xC9] = {/* RET */ []() {TC += 16; PC = ram[SP] | (ram[SP + 1] << 8); SP += 2; }, "RET" };
 
-	opcode[0xC1] = POP_ss(bc);
-	opcode[0xD1] = POP_ss(de);
-	opcode[0xE1] = POP_ss(hl);
+	opcode[0xC1] = POP_ss(BC);
+	opcode[0xD1] = POP_ss(DE);
+	opcode[0xE1] = POP_ss(HL);
 	opcode[0xF1] = POP_ss(af);
 
-	opcode[0xC5] = PUSH_ss(bc);
-	opcode[0xD5] = PUSH_ss(de);
-	opcode[0xE5] = PUSH_ss(hl);
+	opcode[0xC5] = PUSH_ss(BC);
+	opcode[0xD5] = PUSH_ss(DE);
+	opcode[0xE5] = PUSH_ss(HL);
 	opcode[0xF5] = PUSH_ss(af);
 
-	opcode[0x0B] = DEC_ss(bc);
-	opcode[0x1B] = DEC_ss(de);
-	opcode[0x2B] = DEC_ss(hl);
+	opcode[0x0B] = DEC_ss(BC);
+	opcode[0x1B] = DEC_ss(DE);
+	opcode[0x2B] = DEC_ss(HL);
 	opcode[0x3B] = DEC_ss(SP);
 
 	opcode[0x80] = ADD_r(reg_b, 4);
@@ -342,7 +342,7 @@ void CPU::init()
 	opcode[0x83] = ADD_r(reg_e, 4);
 	opcode[0x84] = ADD_r(reg_h, 4);
 	opcode[0x85] = ADD_r(reg_l, 4);
-	opcode[0x86] = ADD_r(ram[hl], 8);
+	opcode[0x86] = ADD_r(ram[HL], 8);
 	opcode[0x87] = ADD_r(reg_a, 4);
 	opcode[0xC6] = ADD_r(ram[++PC], 8);
 
@@ -352,7 +352,7 @@ void CPU::init()
 	opcode[0x93] = SUB_r(reg_e, 4);
 	opcode[0x94] = SUB_r(reg_h, 4);
 	opcode[0x95] = SUB_r(reg_l, 4);
-	opcode[0x96] = SUB_r(ram[hl], 8);
+	opcode[0x96] = SUB_r(ram[HL], 8);
 	opcode[0x97] = SUB_r(reg_a, 4);
 	opcode[0xD6] = SUB_r(ram[++PC], 8);
 
@@ -362,7 +362,7 @@ void CPU::init()
 	opcode[0xA3] = AND_r(reg_e, 4);
 	opcode[0xA4] = AND_r(reg_h, 4);
 	opcode[0xA5] = AND_r(reg_l, 4);
-	opcode[0xA6] = AND_r(ram[hl], 8);
+	opcode[0xA6] = AND_r(ram[HL], 8);
 	opcode[0xA7] = AND_r(reg_a, 4);
 	opcode[0xE6] = AND_r(ram[++PC], 8);
 
@@ -373,7 +373,7 @@ void CPU::init()
 	opcode[0xB3] = OR_r(reg_e, 4);
 	opcode[0xB4] = OR_r(reg_h, 4);
 	opcode[0xB5] = OR_r(reg_l, 4);
-	opcode[0xB6] = OR_r(ram[hl], 8);
+	opcode[0xB6] = OR_r(ram[HL], 8);
 	opcode[0xB7] = OR_r(reg_a, 4);
 	opcode[0xF6] = OR_r(ram[++PC], 8);
 
@@ -384,7 +384,7 @@ void CPU::init()
 	opcode[0x8B] = ADC_r(reg_e, 4);
 	opcode[0x8C] = ADC_r(reg_h, 4);
 	opcode[0x8D] = ADC_r(reg_l, 4);
-	opcode[0x8E] = ADC_r(ram[hl], 8);
+	opcode[0x8E] = ADC_r(ram[HL], 8);
 	opcode[0x8F] = ADC_r(reg_a, 4);
 	opcode[0xCE] = ADC_r(ram[++PC], 8);
 
@@ -395,7 +395,7 @@ void CPU::init()
 	opcode[0x9B] = SBC_r(reg_e, 4);
 	opcode[0x9C] = SBC_r(reg_h, 4);
 	opcode[0x9D] = SBC_r(reg_l, 4);
-	opcode[0x9E] = SBC_r(ram[hl], 8);
+	opcode[0x9E] = SBC_r(ram[HL], 8);
 	opcode[0x9F] = SBC_r(reg_a, 4);
 	opcode[0xDE] = SBC_r(ram[++PC], 8);
 
@@ -405,7 +405,7 @@ void CPU::init()
 	opcode[0xAB] = XOR_r(reg_e, 4);
 	opcode[0xAC] = XOR_r(reg_h, 4);
 	opcode[0xAD] = XOR_r(reg_l, 4);
-	opcode[0xAE] = XOR_r(ram[hl], 8);
+	opcode[0xAE] = XOR_r(ram[HL], 8);
 	opcode[0xAF] = XOR_r(reg_a, 4);
 	opcode[0xEE] = XOR_r(ram[++PC], 8);
 
@@ -415,19 +415,19 @@ void CPU::init()
 	opcode[0xBB] = CP_r(reg_e, 4);
 	opcode[0xBC] = CP_r(reg_h, 4);
 	opcode[0xBD] = CP_r(reg_l, 4);
-	opcode[0xBE] = CP_r(ram[hl], 8);
+	opcode[0xBE] = CP_r(ram[HL], 8);
 	opcode[0xBF] = CP_r(reg_a, 4);
 	opcode[0xFE] = CP_r(ram[++PC], 8);
 
-	opcode[0x18] = { [this]() { /* JR r8   */  TC += 12;  PC += (signed char)(ram[PC + 1]) + 2; }, "JR 0x%02x" };
+	opcode[0x18] = { []() { /* JR r8   */  TC += 12;  PC += (signed char)(ram[PC + 1]) + 2; }, "JR 0x%02x" };
 	opcode[0x20] = JR_X_r8(!flags.Z);
 	opcode[0x30] = JR_X_r8(!flags.C);
 	opcode[0x28] = JR_X_r8(flags.Z);
 	opcode[0x38] = JR_X_r8(flags.C);
-	opcode[0x2F] = { [this]() { /* CPL */ TC += 4; reg_a ^= 0xFF; flags.N = 1; flags.H = 1; PC += 1; }, "CPL" };
-	opcode[0x3F] = { [this]() { /* CCF */ TC += 4; flags.C ^= 1; flags.N = 0; flags.H = 0; PC += 1; }, "CCF" };
-	opcode[0x37] = { [this]() { /* SCF */ TC += 4; flags.C = 1; flags.N = 0; flags.H = 0; PC += 1; }, "SCF" };
-	opcode[0x27] = { [this]() { /* DAA */
+	opcode[0x2F] = { []() { /* CPL */ TC += 4; reg_a ^= 0xFF; flags.N = 1; flags.H = 1; PC += 1; }, "CPL" };
+	opcode[0x3F] = { []() { /* CCF */ TC += 4; flags.C ^= 1; flags.N = 0; flags.H = 0; PC += 1; }, "CCF" };
+	opcode[0x37] = { []() { /* SCF */ TC += 4; flags.C = 1; flags.N = 0; flags.H = 0; PC += 1; }, "SCF" };
+	opcode[0x27] = { []() { /* DAA */
 		TC += 4;
 
 		if (!flags.N)
@@ -446,9 +446,9 @@ void CPU::init()
 		flags.Z = reg_a == 0;
 		PC += 1;
 	}, "DAA" };
-	opcode[0xE9] = { [this]() { /* JP (HL)  */ TC += 4;   PC = hl; }, "JP (HL)" };
-	opcode[0xC3] = { [this]() { /* JUMP A16 */ TC += 16;  PC = ram[PC + 1] | (ram[PC + 2] << 8); }, "JUMP 0x%02x%02x" };
-	opcode[0xCB] = { [this]() { unsigned int op = ram[PC + 1]; CBopcode[op].funct(); if ((op & 0x07) == 6) { TC += 8; } }, "prefixe CB" };
+	opcode[0xE9] = { []() { /* JP (HL)  */ TC += 4;   PC = HL; }, "JP (HL)" };
+	opcode[0xC3] = { []() { /* JUMP A16 */ TC += 16;  PC = ram[PC + 1] | (ram[PC + 2] << 8); }, "JUMP 0x%02x%02x" };
+	opcode[0xCB] = { []() { unsigned int op = ram[PC + 1]; CBopcode[op].funct(); if ((op & 0x07) == 6) { TC += 8; } }, "prefixe CB" };
 
 	CBopcode[0x00] = RLC_n(reg_b);
 	CBopcode[0x01] = RLC_n(reg_c);
@@ -456,7 +456,7 @@ void CPU::init()
 	CBopcode[0x03] = RLC_n(reg_e);
 	CBopcode[0x04] = RLC_n(reg_h);
 	CBopcode[0x05] = RLC_n(reg_l);
-	CBopcode[0x06] = RLC_n(ram[hl]);
+	CBopcode[0x06] = RLC_n(ram[HL]);
 	CBopcode[0x07] = RLC_n(reg_a);
 
 	CBopcode[0x08] = RRC_n(reg_b);
@@ -465,7 +465,7 @@ void CPU::init()
 	CBopcode[0x0B] = RRC_n(reg_e);
 	CBopcode[0x0C] = RRC_n(reg_h);
 	CBopcode[0x0D] = RRC_n(reg_l);
-	CBopcode[0x0E] = RRC_n(ram[hl]);
+	CBopcode[0x0E] = RRC_n(ram[HL]);
 	CBopcode[0x0F] = RRC_n(reg_a);
 
 	CBopcode[0x10] = RL_n(reg_b);
@@ -474,7 +474,7 @@ void CPU::init()
 	CBopcode[0x13] = RL_n(reg_e);
 	CBopcode[0x14] = RL_n(reg_h);
 	CBopcode[0x15] = RL_n(reg_l);
-	CBopcode[0x16] = RL_n(ram[hl]);
+	CBopcode[0x16] = RL_n(ram[HL]);
 	CBopcode[0x17] = RL_n(reg_a);
 
 	CBopcode[0x18] = RR_n(reg_b);
@@ -483,7 +483,7 @@ void CPU::init()
 	CBopcode[0x1B] = RR_n(reg_e);
 	CBopcode[0x1C] = RR_n(reg_h);
 	CBopcode[0x1D] = RR_n(reg_l);
-	CBopcode[0x1E] = RR_n(ram[hl]);
+	CBopcode[0x1E] = RR_n(ram[HL]);
 	CBopcode[0x1F] = RR_n(reg_a);
 
 	CBopcode[0x20] = SLA_n(reg_b);
@@ -492,7 +492,7 @@ void CPU::init()
 	CBopcode[0x23] = SLA_n(reg_e);
 	CBopcode[0x24] = SLA_n(reg_h);
 	CBopcode[0x25] = SLA_n(reg_l);
-	CBopcode[0x26] = SLA_n(ram[hl]);
+	CBopcode[0x26] = SLA_n(ram[HL]);
 	CBopcode[0x27] = SLA_n(reg_a);
 
 	CBopcode[0x28] = SRA_n(reg_b);
@@ -501,7 +501,7 @@ void CPU::init()
 	CBopcode[0x2B] = SRA_n(reg_e);
 	CBopcode[0x2C] = SRA_n(reg_h);
 	CBopcode[0x2D] = SRA_n(reg_l);
-	CBopcode[0x2E] = SRA_n(ram[hl]);
+	CBopcode[0x2E] = SRA_n(ram[HL]);
 	CBopcode[0x2F] = SRA_n(reg_a);
 
 	CBopcode[0x30] = SWAP(reg_b);
@@ -510,7 +510,7 @@ void CPU::init()
 	CBopcode[0x33] = SWAP(reg_e);
 	CBopcode[0x34] = SWAP(reg_h);
 	CBopcode[0x35] = SWAP(reg_l);
-	CBopcode[0x36] = SWAP(ram[hl]);
+	CBopcode[0x36] = SWAP(ram[HL]);
 	CBopcode[0x37] = SWAP(reg_a);
 
 	CBopcode[0x38] = SRL(reg_b);
@@ -519,7 +519,7 @@ void CPU::init()
 	CBopcode[0x3B] = SRL(reg_e);
 	CBopcode[0x3C] = SRL(reg_h);
 	CBopcode[0x3D] = SRL(reg_l);
-	CBopcode[0x3E] = SRL(ram[hl]);
+	CBopcode[0x3E] = SRL(ram[HL]);
 	CBopcode[0x3F] = SRL(reg_a);
 
 	CBopcode[0x40] = BIT(0, reg_b);

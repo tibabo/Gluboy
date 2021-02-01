@@ -205,20 +205,20 @@ bool handleJoypad()
 	int buttons_count = 0;
 	const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axes_count);
 	const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttons_count);
-	if (buttons_count > 13)
+	
 	{
-		if (buttons[4]) return true; // for rewind
-		bool start = ImGui::IsKeyDown(257) | buttons[7];
-		bool select = ImGui::IsKeyDown(258) | buttons[6];
-		bool b = ImGui::IsKeyDown(81) | buttons[0];
-		bool a = ImGui::IsKeyDown(87) | buttons[1];
+		if ((buttons && buttons[4]) ) return true; // for rewind
+		bool start = ImGui::IsKeyDown(257) | (buttons && buttons[7]);
+		bool select = ImGui::IsKeyDown(258) | (buttons && buttons[6]);
+		bool b = ImGui::IsKeyDown(81) | (buttons && buttons[0]);
+		bool a = ImGui::IsKeyDown(87) | (buttons && buttons[1]);
 		newButton = (start << 3 | select << 2 | b << 1 | a) ^ 0x0f; // start - select - B - A
 
 		float treshold = 0.3f;
-		bool left = ImGui::IsKeyDown(263) | buttons[13] | axes[0] < -treshold;
-		bool right = ImGui::IsKeyDown(262) | buttons[11] | axes[0] > treshold;
-		bool up = ImGui::IsKeyDown(265) | buttons[10] | axes[1] < -treshold;
-		bool down = ImGui::IsKeyDown(264) | buttons[12] | axes[1] > treshold;
+		bool left = ImGui::IsKeyDown(263) | (buttons && buttons[13]) | (axes && (axes[0] < -treshold));
+		bool right = ImGui::IsKeyDown(262) | (buttons && buttons[11]) | (axes && (axes[0] > treshold));
+		bool up = ImGui::IsKeyDown(265) | (buttons && buttons[10]) | (axes && (axes[1] < -treshold));
+		bool down = ImGui::IsKeyDown(264) | (buttons && buttons[12]) | (axes && (axes[1] > treshold));
 		newDirection = (down << 3 | up << 2 | left << 1 | right) ^ 0x0f; // down up left right
 
 		

@@ -45,14 +45,32 @@ if(WIN32)
 			./libs/nfd/nfd_win.cpp)
 
 else()
-	set(OPENAL_LIBRARY openal)
-	set(GLFW_LIBRARY glfw GL)
+	find_library(OPENAL_LIBRARY OpenAL)
+	if(APPLE)
+		set(CMAKE_C_FLAGS "-x objective-c")
+		find_library(GL_LIBRARY OpenGL)
+		find_library(COCOA_LIBRARY Cocoa)
+		find_library(IOKIT_LIBRARY IOKit)
+		find_library(CORE_VIDEO_LIBRARY CoreVideo)
+		set(GLFW_LIBRARY glfw3)
+		file(GLOB PLATFORM_SOURCES 
+			./libs/nfd/nfd_cocoa.m)
+	else()
+		set(GLFW_LIBRARY glfw GL)
+	endif()
 endif()
 
 # add the executable
 add_executable(Gluboy ${SOURCES} ${PLATFORM_SOURCES})
 
-TARGET_LINK_LIBRARIES(Gluboy ${OPENAL_LIBRARY} ${GLFW_LIBRARY} ${GTK3_LIBRARIES})
+TARGET_LINK_LIBRARIES(Gluboy 
+						${OPENAL_LIBRARY}
+						${COCOA_LIBRARY} 
+						${GL_LIBRARY} 
+						${IOKIT_LIBRARY} 
+						${CORE_VIDEO_LIBRARY} 
+						${GLFW_LIBRARY}
+						${GTK3_LIBRARIES})
 
 target_include_directories(Gluboy PUBLIC
         "${PROJECT_SOURCE_DIR}/libs/imgui"
@@ -66,6 +84,15 @@ if(WIN32)
 	target_include_directories(Gluboy PUBLIC
         "${PROJECT_SOURCE_DIR}/libs/glfw/include"
 		"${PROJECT_SOURCE_DIR}/libs/OpenAl/include"
+        )
+
+endif()
+
+if(APPLE)
+	target_link_directories(Gluboy PUBLIC
+		"${PROJECT_SOURCE_DIR}/libs/glfw/lib-macos/")
+	target_include_directories(Gluboy PUBLIC
+        "${PROJECT_SOURCE_DIR}/libs/glfw/include"
         )
 
 endif()

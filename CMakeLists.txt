@@ -45,7 +45,7 @@ if(WIN32)
 			./libs/nfd/nfd_win.cpp)
 
 else()
-	find_library(OPENAL_LIBRARY OpenAL)
+	find_library(OPENAL_LIBRARY openal OpenAL al OpenAL32)
 	if(APPLE)
 		set(CMAKE_C_FLAGS "-x objective-c")
 		find_library(GL_LIBRARY OpenGL)

@@ -42,10 +42,11 @@ if(WIN32)
 	set(OPENAL_LIBRARY OpenAL32)
 	set(GLFW_LIBRARY glfw3 opengl32)
 	file(GLOB PLATFORM_SOURCES 
-			./libs/nfd/nfd_win.cpp)
+			./libs/nfd/nfd_win.cpp
+			./icon/Gluboy.rc)
 
 else()
-	find_library(OPENAL_LIBRARY openal OpenAL al OpenAL32)
+	find_library(OPENAL_LIBRARY openal OpenAL al OpenAL32 )
 	if(APPLE)
 		set(CMAKE_C_FLAGS "-x objective-c")
 		find_library(GL_LIBRARY OpenGL)
@@ -73,11 +74,13 @@ TARGET_LINK_LIBRARIES(Gluboy
 						${GTK3_LIBRARIES})
 
 target_include_directories(Gluboy PUBLIC
+        "${PROJECT_SOURCE_DIR}/libs/"
         "${PROJECT_SOURCE_DIR}/libs/imgui"
 		"${PROJECT_SOURCE_DIR}/libs/nfd/include"
         )
         
 if(WIN32)
+	target_link_options(Gluboy PUBLIC "LINKER:/subsystem:windows,/entry:mainCRTStartup")
 	target_link_directories(Gluboy PUBLIC
 		"${PROJECT_SOURCE_DIR}/libs/glfw/lib-vc2010-64/"
 		"${PROJECT_SOURCE_DIR}/libs/OpenAL/libs/")
@@ -96,3 +99,5 @@ if(APPLE)
         )
 
 endif()
+
+file(COPY icon DESTINATION ${CMAKE_BINARY_DIR})

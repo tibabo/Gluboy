@@ -7,6 +7,7 @@
 // See imgui_impl_glfw.cpp for details.
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl2.h"
 #include "glouboy.h"
@@ -15,6 +16,9 @@
 #define GL_SILENCE_DEPRECATION
 #endif
 #include <GLFW/glfw3.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
 // To link with VS2010-era libraries, VS2015+ requires linking with legacy_stdio_definitions.lib, which we do using this pragma.
@@ -37,6 +41,27 @@ int main(int, char**)
 	GLFWwindow* window = glfwCreateWindow(1280, 720, "Gluboy", NULL, NULL);
 	if (window == NULL)
 		return 1;
+
+	FILE * f = ImFileOpen("./icon/Gluboy.ico", "rb");
+	fseek(f, 0, SEEK_END);
+	int icoFileSize = ftell(f);
+	rewind(f);
+
+	unsigned char * ico = (unsigned char*)malloc(icoFileSize + 1);
+	fread(ico, 1, icoFileSize, f);
+	fclose(f);
+
+	for (int i = 0; i < ico[4]; i++)
+	{
+		int firstImageSize = *(int*)(&ico[6 + 8 + 16*i]);
+		int firstImagePosition = *(int*)(&ico[6 + 12 + 16*i ]);
+		GLFWimage images[1]; 
+		images[0].pixels = stbi_load_from_memory(ico + firstImagePosition, firstImageSize, &images[0].width, &images[0].height, 0, 4);
+		glfwSetWindowIcon(window, 1, images); 
+		stbi_image_free(images[0].pixels);
+	}
+	free(ico);
+
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1); // Enable vsync
 

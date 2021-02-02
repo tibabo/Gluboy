@@ -57,8 +57,11 @@ int main(int, char**)
 		int firstImagePosition = *(int*)(&ico[6 + 12 + 16*i ]);
 		GLFWimage images[1]; 
 		images[0].pixels = stbi_load_from_memory(ico + firstImagePosition, firstImageSize, &images[0].width, &images[0].height, 0, 4);
-		glfwSetWindowIcon(window, 1, images); 
-		stbi_image_free(images[0].pixels);
+		if(images[0].pixels)
+		{
+			glfwSetWindowIcon(window, 1, images); 
+			stbi_image_free(images[0].pixels);
+		}
 	}
 	free(ico);
 

@@ -14,7 +14,8 @@
 
 extern unsigned char * rom;
 namespace Glouboy {
-	void init(const char *);
+	void init(const char * path);
+	void init(unsigned char * rom, int size, const char * path);
 	void update();
 	void execute();
 	void close();

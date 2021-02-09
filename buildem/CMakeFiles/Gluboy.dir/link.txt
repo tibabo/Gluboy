@@ -1,0 +1,1 @@
+/home/jo/src/emsdk/upstream/emscripten/em++  -O3 -DNDEBUG  -s USE_GLFW=3 -s USE_WEBGL2=1 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s DISABLE_EXCEPTION_CATCHING=1 -s NO_EXIT_RUNTIME=0 -s ASSERTIONS=1 @CMakeFiles/Gluboy.dir/objects1.rsp  -o Gluboy.js @CMakeFiles/Gluboy.dir/linklibs.rsp

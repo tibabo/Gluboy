@@ -1,7 +1,7 @@
 #ifdef __APPLE__
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
-#elif __linux__
+#elif __linux__ || __EMSCRIPTEN__
 #include <AL/al.h>
 #include <AL/alc.h>
 #elif _WIN32

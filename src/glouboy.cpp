@@ -18,6 +18,7 @@
 #include "timer.h"
 #include "audio.h"
 #include "cpu.h"
+
 static MemoryEditor mem_edit_1;
 
 enum {BUF_SIZE = 1024};
@@ -39,7 +40,12 @@ struct state
 	Timer timer;
 };
 
+#if __EMSCRIPTEN__
+#define TOTAL_STATES (2)
+#else
 #define TOTAL_STATES (60 * 10)
+#endif
+
 state states[TOTAL_STATES];
 int firstState = -1;
 int lastState = 0;
@@ -54,24 +60,29 @@ unsigned char * rom = nullptr;
 char savepath[MAX_PATH];
 FILE * saveFile = nullptr;
 
+static bool run = false;
+
 void Glouboy::init(const char * path)
 {
-	if (rom != nullptr)
-	{
-		free(rom);
-		romSize = 0;
-	}
+	int dataSize = 0;
 
 	FILE * f = ImFileOpen(path, "rb");
 	fseek(f, 0, SEEK_END);
-	romSize = ftell(f);
+	dataSize = ftell(f);
 	rewind(f);
 
-	rom = (unsigned char*)malloc(romSize + 1);
-	fread(rom, 1, romSize, f);
-	((char*)rom)[romSize] = 0;
+	unsigned char *data = (unsigned char*)malloc(dataSize + 1);
+	fread(data, 1, dataSize, f);
+	((char*)data)[dataSize] = 0;
 	fclose(f);
+	init(data, dataSize, path);
 
+}
+
+void Glouboy::init(unsigned char * data, int dataSize, const char * path)
+{
+	rom = data;
+	romSize = dataSize;
 	if (video) delete video;
 	video = new Video;
 	video->createTextures();
@@ -126,7 +137,7 @@ void Glouboy::init(const char * path)
 	audio->init();
 
 	breakpointPC = -1;
-	
+	run = true;
 }
 
 static FILE * f = nullptr;
@@ -180,10 +191,10 @@ void Glouboy::close()
 
 void Glouboy::update()
 {
-	static bool run = false;
 	static bool showMem = false;
 	static bool showAudio = false;
 
+#if !__EMSCRIPTEN__ 
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("File"))
@@ -192,8 +203,11 @@ void Glouboy::update()
 				nfdchar_t *outPath = NULL;
 				if (NFD_OpenDialog("gb", NULL, &outPath) == NFD_OKAY)
 				{
+					if (rom != nullptr)
+					{
+						free(rom);
+					}
 					init(outPath);
-					run = true;
 				}
 			}
 			ImGui::EndMenu();
@@ -206,7 +220,7 @@ void Glouboy::update()
 		}
 		ImGui::EndMainMenuBar();
 	}
-
+#endif
 	if (rom == nullptr) return;
 
 

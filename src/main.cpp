@@ -9,13 +9,57 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl2.h"
+#include "imgui_impl_opengl3.h"
 #include "glouboy.h"
 #include <stdio.h>
+
+#ifdef __EMSCRIPTEN__
+#include "Tetris.gb.h"
+#include <emscripten.h>
+EM_JS(int, canvas_get_width, (), {
+  return Module.canvas.width;
+});
+
+EM_JS(int, canvas_get_height, (), {
+  return Module.canvas.height;
+});
+
+EM_JS(void, resizeCanvas, (), {
+  js_resizeCanvas();
+});
+#endif
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #endif
+
+// About Desktop OpenGL function loaders:
+//  Modern desktop OpenGL doesn't have a standard portable header file to load OpenGL function pointers.
+//  Helper libraries are often used for this purpose! Here we are supporting a few common ones (gl3w, glew, glad).
+//  You may use another loader/header of your choice (glext, glLoadGen, etc.), or chose to manually implement your own.
+#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+#include <GL/gl3w.h>            // Initialize with gl3wInit()
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLEW)
+#include <GL/glew.h>            // Initialize with glewInit()
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD)
+#include <glad/glad.h>          // Initialize with gladLoadGL()
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD2)
+#include <glad/gl.h>            // Initialize with gladLoadGL(...) or gladLoaderLoadGL()
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLBINDING2)
+#define GLFW_INCLUDE_NONE       // GLFW including OpenGL headers causes ambiguity or multiple definition errors.
+#include <glbinding/Binding.h>  // Initialize with glbinding::Binding::initialize()
+#include <glbinding/gl/gl.h>
+using namespace gl;
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLBINDING3)
+#define GLFW_INCLUDE_NONE       // GLFW including OpenGL headers causes ambiguity or multiple definition errors.
+#include <glbinding/glbinding.h>// Initialize with glbinding::initialize()
+#include <glbinding/gl/gl.h>
+using namespace gl;
+#endif
+
+// Include glfw3.h after our OpenGL definitions
 #include <GLFW/glfw3.h>
+
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -32,16 +76,35 @@ static void glfw_error_callback(int error, const char* description)
 	fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+GLFWwindow* window;
+void loop();
+
 int main(int, char**)
 {
-	// Setup window
-	glfwSetErrorCallback(glfw_error_callback);
-	if (!glfwInit())
-		return 1;
-	GLFWwindow* window = glfwCreateWindow(1280, 720, "Gluboy", NULL, NULL);
+   if (!glfwInit())
+        return 1;
+
+    // Decide GL+GLSL versions
+#ifdef __APPLE__
+    // GL 3.2 + GLSL 150
+    const char* glsl_version = "#version 150";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
+#else
+    // GL 3.0 + GLSL 130
+    const char* glsl_version = "#version 130";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+#endif
+
+	window = glfwCreateWindow(1280, 720, "Gluboy", NULL, NULL);
 	if (window == NULL)
 		return 1;
-
+#if !__EMSCRIPTEN__
 	FILE * f = ImFileOpen("./icon/Gluboy.ico", "rb");
 	fseek(f, 0, SEEK_END);
 	int icoFileSize = ftell(f);
@@ -64,9 +127,34 @@ int main(int, char**)
 		}
 	}
 	free(ico);
-
+#endif
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1); // Enable vsync
+
+    // Initialize OpenGL loader
+#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+    bool err = gl3wInit() != 0;
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLEW)
+    bool err = glewInit() != GLEW_OK;
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD)
+    bool err = gladLoadGL() == 0;
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLAD2)
+    bool err = gladLoadGL(glfwGetProcAddress) == 0; // glad2 recommend using the windowing library loader instead of the (optionally) bundled one.
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLBINDING2)
+    bool err = false;
+    glbinding::Binding::initialize();
+#elif defined(IMGUI_IMPL_OPENGL_LOADER_GLBINDING3)
+    bool err = false;
+    glbinding::initialize([](const char* name) { return (glbinding::ProcAddress)glfwGetProcAddress(name); });
+#else
+    bool err = false; // If you use IMGUI_IMPL_OPENGL_LOADER_CUSTOM, your loader is likely to requires some form of initialization.
+#endif
+    if (err)
+    {
+        fprintf(stderr, "Failed to initialize OpenGL loader!\n");
+        return 1;
+    }
+
 
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -81,7 +169,7 @@ int main(int, char**)
 
 	// Setup Platform/Renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL2_Init();
+	ImGui_ImplOpenGL3_Init();
 
 	// Load Fonts
 	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -98,54 +186,20 @@ int main(int, char**)
 	//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 	//IM_ASSERT(font != NULL);
 
-	// Our state
-	bool show_demo_window = false;
-	bool show_another_window = false;
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+	#ifdef __EMSCRIPTEN__
+	Glouboy::init((unsigned char *)&Tetris_gb,sizeof(Tetris_gb), "");
+	emscripten_set_main_loop(loop, 0, 1);
+	#else
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
-		// Poll and handle events (inputs, window resize, etc.)
-		// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-		// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
-		// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
-		// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-		glfwPollEvents();
-
-		// Start the Dear ImGui frame
-		ImGui_ImplOpenGL2_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-		if (show_demo_window)
-			ImGui::ShowDemoWindow(&show_demo_window);
-
-		Glouboy::update();
-
-		// Rendering
-		ImGui::Render();
-		int display_w, display_h;
-		glfwGetFramebufferSize(window, &display_w, &display_h);
-		glViewport(0, 0, display_w, display_h);
-		glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		// If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
-		// you may need to backup/reset/restore current shader using the commented lines below.
-		//GLint last_program;
-		//glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
-		//glUseProgram(0);
-		ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-		//glUseProgram(last_program);
-
-		glfwMakeContextCurrent(window);
-		glfwSwapBuffers(window);
+		loop();
 	}
+	#endif
 	Glouboy::close();
 	// Cleanup
-	ImGui_ImplOpenGL2_Shutdown();
+	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 
@@ -153,4 +207,55 @@ int main(int, char**)
 	glfwTerminate();
 
 	return 0;
+}
+
+
+void loop()
+{
+
+#ifdef __EMSCRIPTEN__
+	int width = canvas_get_width();
+  	int height = canvas_get_height();
+  	glfwSetWindowSize(window, width, height);
+#endif
+	// Our state
+	bool show_demo_window = false;
+	bool show_another_window = false;
+	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+	// Poll and handle events (inputs, window resize, etc.)
+	// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
+	// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
+	// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
+	// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+	glfwPollEvents();
+
+	// Start the Dear ImGui frame
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+	if (show_demo_window)
+		ImGui::ShowDemoWindow(&show_demo_window);
+
+	Glouboy::update();
+
+	// Rendering
+	ImGui::Render();
+	int display_w, display_h;
+	glfwGetFramebufferSize(window, &display_w, &display_h);
+	glViewport(0, 0, display_w, display_h);
+	glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
+	// you may need to backup/reset/restore current shader using the commented lines below.
+	//GLint last_program;
+	//glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
+	//glUseProgram(0);
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	//glUseProgram(last_program);
+
+	glfwMakeContextCurrent(window);
+	glfwSwapBuffers(window);
 }

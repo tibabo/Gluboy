@@ -10,7 +10,7 @@ if(UNIX AND NOT APPLE)
 	set(LINUX TRUE)
 endif()
 
-if(LINUX)
+if(LINUX AND NOT EMSCRIPTEN)
 # Use the package PkgConfig to detect GTK+ headers/library files
 FIND_PACKAGE(PkgConfig REQUIRED)
 PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
@@ -28,10 +28,19 @@ endif()
 
 file(GLOB SOURCES 
 	./src/*.cpp
-	./libs/nfd/nfd_common.c
 	./libs/imgui/*.cpp
 )
 
+if(NOT EMSCRIPTEN)
+	add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+	file(GLOB NFD_SOURCES 
+		./libs/gl3w/GL/*.c
+		./libs/nfd/nfd_common.c)
+else()
+	add_link_options ("SHELL:-s USE_GLFW=3"  "SHELL:-s USE_WEBGL2=1" "SHELL:-s FULL_ES3=1" "SHELL:-s WASM=1" )
+	add_link_options ("SHELL:-s ALLOW_MEMORY_GROWTH=1"  "SHELL:-s DISABLE_EXCEPTION_CATCHING=1" "SHELL:-s NO_EXIT_RUNTIME=0" )
+	add_link_options ("SHELL:-s ASSERTIONS=1")
+endif()
 
 # Use folders for nice tree in Visual Studio and XCode
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -46,7 +55,9 @@ if(WIN32)
 			./icon/Gluboy.rc)
 
 else()
-	find_library(OPENAL_LIBRARY openal OpenAL al OpenAL32 )
+	if(NOT EMSCRIPTEN)
+		find_library(OPENAL_LIBRARY openal OpenAL al OpenAL32 )
+	endif()
 	if(APPLE)
 		set(CMAKE_C_FLAGS "-x objective-c")
 		find_library(GL_LIBRARY OpenGL)
@@ -62,7 +73,7 @@ else()
 endif()
 
 # add the executable
-add_executable(Gluboy ${SOURCES} ${PLATFORM_SOURCES})
+add_executable(Gluboy ${SOURCES} ${NFD_SOURCES} ${PLATFORM_SOURCES})
 
 TARGET_LINK_LIBRARIES(Gluboy 
 						${OPENAL_LIBRARY}
@@ -71,9 +82,11 @@ TARGET_LINK_LIBRARIES(Gluboy
 						${IOKIT_LIBRARY} 
 						${CORE_VIDEO_LIBRARY} 
 						${GLFW_LIBRARY}
-						${GTK3_LIBRARIES})
+						${GTK3_LIBRARIES}
+						${CMAKE_DL_LIBS})
 
 target_include_directories(Gluboy PUBLIC
+        "${PROJECT_SOURCE_DIR}/libs/gl3w"
         "${PROJECT_SOURCE_DIR}/libs/"
         "${PROJECT_SOURCE_DIR}/libs/imgui"
 		"${PROJECT_SOURCE_DIR}/libs/nfd/include"

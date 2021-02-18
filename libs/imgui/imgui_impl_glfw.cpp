@@ -285,8 +285,10 @@ static void ImGui_ImplGlfw_UpdateMousePosAndButtons()
         {
             double mouse_x, mouse_y;
             glfwGetCursorPos(g_Window, &mouse_x, &mouse_y);
-            float xscale; float yscale;
+            float xscale = 1.f; float yscale = 1.f;
+#ifndef  __APPLE__
             glfwGetWindowContentScale(g_Window, &xscale, &yscale);
+#endif            
             io.MousePos = ImVec2((float)mouse_x/xscale, (float)mouse_y/yscale);
         }
     }
@@ -362,9 +364,10 @@ void ImGui_ImplGlfw_NewFrame()
     glfwGetFramebufferSize(g_Window, &display_w, &display_h);
 
 
-    float xscale; float yscale;
+    float xscale = 1.f; float yscale = 1.f;
+#ifndef  __APPLE__
     glfwGetWindowContentScale(g_Window, &xscale, &yscale);
-
+#endif
     io.DisplaySize = ImVec2((float)w/xscale, (float)h/yscale);
     if (w > 0 && h > 0)
         io.DisplayFramebufferScale = ImVec2((float)display_w / io.DisplaySize.x, (float)display_h / io.DisplaySize.y);

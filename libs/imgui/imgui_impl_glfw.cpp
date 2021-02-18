@@ -285,7 +285,9 @@ static void ImGui_ImplGlfw_UpdateMousePosAndButtons()
         {
             double mouse_x, mouse_y;
             glfwGetCursorPos(g_Window, &mouse_x, &mouse_y);
-            io.MousePos = ImVec2((float)mouse_x, (float)mouse_y);
+            float xscale; float yscale;
+            glfwGetWindowContentScale(g_Window, &xscale, &yscale);
+            io.MousePos = ImVec2((float)mouse_x/xscale, (float)mouse_y/yscale);
         }
     }
 }
@@ -358,9 +360,14 @@ void ImGui_ImplGlfw_NewFrame()
     int display_w, display_h;
     glfwGetWindowSize(g_Window, &w, &h);
     glfwGetFramebufferSize(g_Window, &display_w, &display_h);
-    io.DisplaySize = ImVec2((float)w, (float)h);
+
+
+    float xscale; float yscale;
+    glfwGetWindowContentScale(g_Window, &xscale, &yscale);
+
+    io.DisplaySize = ImVec2((float)w/xscale, (float)h/yscale);
     if (w > 0 && h > 0)
-        io.DisplayFramebufferScale = ImVec2((float)display_w / w, (float)display_h / h);
+        io.DisplayFramebufferScale = ImVec2((float)display_w / io.DisplaySize.x, (float)display_h / io.DisplaySize.y);
 
     // Setup time step
     double current_time = glfwGetTime();

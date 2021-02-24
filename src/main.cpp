@@ -106,27 +106,30 @@ int main(int, char**)
 		return 1;
 #if !__EMSCRIPTEN__
 	FILE * f = ImFileOpen("./icon/Gluboy.ico", "rb");
-	fseek(f, 0, SEEK_END);
-	int icoFileSize = ftell(f);
-	rewind(f);
-
-	unsigned char * ico = (unsigned char*)malloc(icoFileSize + 1);
-	fread(ico, 1, icoFileSize, f);
-	fclose(f);
-
-	for (int i = 0; i < ico[4]; i++)
+	if(f)
 	{
-		int firstImageSize = *(int*)(&ico[6 + 8 + 16*i]);
-		int firstImagePosition = *(int*)(&ico[6 + 12 + 16*i ]);
-		GLFWimage images[1]; 
-		images[0].pixels = stbi_load_from_memory(ico + firstImagePosition, firstImageSize, &images[0].width, &images[0].height, 0, 4);
-		if(images[0].pixels)
+		fseek(f, 0, SEEK_END);
+		int icoFileSize = ftell(f);
+		rewind(f);
+
+		unsigned char * ico = (unsigned char*)malloc(icoFileSize + 1);
+		fread(ico, 1, icoFileSize, f);
+		fclose(f);
+
+		for (int i = 0; i < ico[4]; i++)
 		{
-			glfwSetWindowIcon(window, 1, images); 
-			stbi_image_free(images[0].pixels);
+			int firstImageSize = *(int*)(&ico[6 + 8 + 16*i]);
+			int firstImagePosition = *(int*)(&ico[6 + 12 + 16*i ]);
+			GLFWimage images[1]; 
+			images[0].pixels = stbi_load_from_memory(ico + firstImagePosition, firstImageSize, &images[0].width, &images[0].height, 0, 4);
+			if(images[0].pixels)
+			{
+				glfwSetWindowIcon(window, 1, images); 
+				stbi_image_free(images[0].pixels);
+			}
 		}
+		free(ico);
 	}
-	free(ico);
 #endif
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1); // Enable vsync

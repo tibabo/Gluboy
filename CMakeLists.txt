@@ -95,8 +95,8 @@ target_include_directories(Gluboy PUBLIC
 if(WIN32)
 	target_link_options(Gluboy PUBLIC "LINKER:/subsystem:windows,/entry:mainCRTStartup")
 	target_link_directories(Gluboy PUBLIC
-		"${PROJECT_SOURCE_DIR}/libs/glfw/lib-vc2010-64/"
 		"${PROJECT_SOURCE_DIR}/libs/OpenAL/libs/")
+		"${PROJECT_SOURCE_DIR}/libs/glfw/lib-vc2012/"
 	target_include_directories(Gluboy PUBLIC
         "${PROJECT_SOURCE_DIR}/libs/glfw/include"
 		"${PROJECT_SOURCE_DIR}/libs/OpenAl/include"

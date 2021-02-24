@@ -100,7 +100,9 @@ int main(int, char**)
     //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
+#if !defined(__EMSCRIPTEN__)
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
+#endif
 	window = glfwCreateWindow(1280, 720, "Gluboy", NULL, NULL);
 	if (window == NULL)
 		return 1;

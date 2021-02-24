@@ -61,4 +61,11 @@ $ emcmake cmake ..
 
 # Build
 $ emmake make 
+
+# Run web server in background
+$ python3& -m http.server
+
+# Display page 
+$ firefox localhost:8000
+
 ``` 

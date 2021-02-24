@@ -1,3 +1,0 @@
-/home/jo/src/Gluboy/buildem/CMakeFiles/rebuild_cache.dir
-/home/jo/src/Gluboy/buildem/CMakeFiles/edit_cache.dir
-/home/jo/src/Gluboy/buildem/CMakeFiles/Gluboy.dir

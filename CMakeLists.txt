@@ -114,3 +114,7 @@ if(APPLE)
 endif()
 
 file(COPY icon DESTINATION ${CMAKE_BINARY_DIR})
+
+if(EMSCRIPTEN)
+file(COPY src/web/index.html DESTINATION ${CMAKE_BINARY_DIR})
+endif()
